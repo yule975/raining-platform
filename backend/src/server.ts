@@ -80,7 +80,8 @@ app.post('/api/courses', async (req, res) => {
   try {
     const { title, description, cover_url, video_url, duration, instructor } = req.body
 
-    const { data, error } = await supabase
+    // 第一步：创建课程
+    const { data: courseData, error: courseError } = await supabase
       .from('courses')
       .insert({
         title,
@@ -93,11 +94,49 @@ app.post('/api/courses', async (req, res) => {
       .select()
       .single()
 
-    if (error) {
-      throw error
+    if (courseError) {
+      throw courseError
     }
 
-    res.status(201).json(data)
+    console.log('Course created successfully:', courseData.id, courseData.title)
+
+    // 第二步：自动关联到当前期次
+    try {
+      // 获取当前期次
+      const { data: currentSession, error: sessionError } = await supabase
+        .from('training_sessions')
+        .select('id, name')
+        .eq('is_current', true)
+        .eq('status', 'active')
+        .single()
+
+      if (sessionError && sessionError.code !== 'PGRST116') {
+        console.warn('获取当前期次失败，跳过自动关联:', sessionError.message)
+      } else if (currentSession) {
+        // 关联课程到当前期次
+        const { error: linkError } = await supabase
+          .from('session_courses')
+          .insert({
+            session_id: currentSession.id,
+            course_id: courseData.id,
+            is_active: true,
+            added_at: new Date().toISOString()
+          })
+
+        if (linkError) {
+          console.warn('课程关联到期次失败:', linkError.message)
+        } else {
+          console.log('✅ 课程自动关联到当前期次:', currentSession.name)
+        }
+      } else {
+        console.log('⚠️ 未找到当前期次，课程未自动关联')
+      }
+    } catch (autoLinkError) {
+      // 自动关联失败不影响课程创建
+      console.warn('自动关联期次过程出错:', autoLinkError)
+    }
+
+    res.status(201).json(courseData)
   } catch (error) {
     console.error('Error creating course:', error)
     res.status(500).json({ error: 'Failed to create course' })
