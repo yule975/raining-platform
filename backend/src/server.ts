@@ -528,108 +528,186 @@ app.put('/api/students/:userId/sessions', async (req, res) => {
     let { userId } = req.params
     const { sessionIds } = req.body as { sessionIds: string[] }
 
+    console.log(`设置学员期次: userId=${userId}, sessionIds=[${sessionIds.join(',')}]`)
+
     if (!Array.isArray(sessionIds)) {
       return res.status(400).json({ error: 'sessionIds should be an array' })
     }
 
+    let finalUserId = userId
+    
     // 兼容：如果传入的是 authorized_users 的数字主键，需换取 profiles/auth 的 UUID
     const isUuid = typeof userId === 'string' && userId.includes('-') && userId.length >= 32
     if (!isUuid) {
+      console.log(`开始ID转换流程: 数字ID=${userId}`)
+      
       // 查找学员邮箱
       const parsedId = Number(userId)
       if (Number.isNaN(parsedId)) {
-        return res.status(400).json({ error: 'Invalid userId' })
+        console.error('Invalid userId: not a number')
+        return res.status(400).json({ error: 'Invalid userId: must be a number or UUID' })
       }
+      
       const { data: authRow, error: authErr } = await supabase
         .from('authorized_users')
         .select('email,name')
         .eq('id', parsedId)
         .single()
+        
       if (authErr) {
         console.error('Fetch authorized_users failed:', authErr?.message || authErr)
-        return res.status(500).json({ error: 'Failed to resolve user email' })
+        return res.status(500).json({ error: 'Failed to find user in authorized_users', detail: authErr.message })
       }
+      
       if (!authRow?.email) {
-        return res.status(404).json({ error: 'User not found' })
+        console.error('User not found in authorized_users')
+        return res.status(404).json({ error: 'User not found in authorized_users' })
       }
+      
+      console.log(`找到授权用户: email=${authRow.email}, name=${authRow.name}`)
+      
       // 用邮箱在 profiles 中找到 UUID
-      let { data: profileList, error: profileErr } = await supabase
+      const { data: profileList, error: profileErr } = await supabase
         .from('profiles')
-        .select('id,updated_at,created_at')
+        .select('id,email,full_name,updated_at,created_at')
         .eq('email', authRow.email)
         .order('updated_at', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(1)
+        
       let profile = Array.isArray(profileList) ? profileList[0] : (profileList as any)
+      
       if (profileErr) {
         console.error('Fetch profile by email failed:', profileErr?.message || profileErr)
-        profile = null as any
+        profile = null
       }
+      
       if (!profile?.id) {
-        // 尝试用 Admin API 找到 auth 用户ID
-        const { data: users, error: listErr } = await supabase.auth.admin.listUsers()
-        if (listErr) {
-          console.error('List auth users failed:', listErr?.message || listErr)
-          return res.status(500).json({ error: 'Failed to resolve auth user' })
-        }
-        const authUser = users?.users?.find((u: any) => u.email === authRow.email)
-        let finalUser = authUser
-        if (!finalUser) {
-          // 若没有Auth账户，自动创建一个（随机密码，直接确认）
-          const randomPwd = Math.random().toString(36).slice(-10) + 'A1!'
-          const { data: created, error: createErr } = await supabase.auth.admin.createUser({
-            email: authRow.email,
-            password: randomPwd,
-            email_confirm: true,
-            user_metadata: { full_name: authRow.name || authRow.email.split('@')[0] || '' }
-          })
-          if (createErr) {
-            console.error('Create auth user failed:', createErr?.message || createErr)
-            return res.status(500).json({ error: 'Failed to create auth user' })
+        console.log(`用户未注册或无profile记录，尝试创建: email=${authRow.email}`)
+        
+        // 尝试用 Admin API 找到 auth 用户
+        let authUser = null
+        try {
+          const { data: users, error: listErr } = await supabase.auth.admin.listUsers()
+          if (listErr) {
+            console.error('List auth users failed:', listErr?.message || listErr)
+          } else {
+            authUser = users?.users?.find((u: any) => u.email === authRow.email)
+            console.log(`在auth.users中${authUser ? '找到' : '未找到'}用户: ${authRow.email}`)
           }
-          finalUser = created.user as any
+        } catch (listError) {
+          console.error('Error listing auth users:', listError)
         }
-        // 补写 profiles 记录
-        const { error: upsertErr } = await supabase
-          .from('profiles')
-          .upsert({
-            id: finalUser.id,
-            email: authRow.email,
-            full_name: finalUser.user_metadata?.full_name || authRow.name || authRow.email.split('@')[0] || '',
-            role: 'student',
-            updated_at: new Date().toISOString(),
-            created_at: new Date().toISOString()
-          }, { onConflict: 'id' })
-        if (upsertErr) {
-          console.error('Upsert profile failed:', upsertErr?.message || upsertErr)
-          return res.status(500).json({ error: 'Failed to upsert profile' })
+        
+        if (!authUser) {
+          // 创建新的Auth用户
+          try {
+            const randomPwd = Math.random().toString(36).slice(-10) + 'A1!'
+            console.log(`创建新的Auth用户: email=${authRow.email}`)
+            
+            const { data: created, error: createErr } = await supabase.auth.admin.createUser({
+              email: authRow.email,
+              password: randomPwd,
+              email_confirm: true,
+              user_metadata: { full_name: authRow.name || authRow.email.split('@')[0] || '' }
+            })
+            
+            if (createErr) {
+              console.error('Create auth user failed:', createErr?.message || createErr)
+              return res.status(500).json({ error: 'Failed to create auth user', detail: createErr.message })
+            }
+            
+            authUser = created.user
+            console.log(`Auth用户创建成功: id=${authUser?.id}`)
+          } catch (createError) {
+            console.error('Error creating auth user:', createError)
+            return res.status(500).json({ error: 'Failed to create auth user', detail: String(createError) })
+          }
         }
-        userId = finalUser.id
+        
+        if (authUser) {
+          // 创建或更新 profiles 记录
+          try {
+            console.log(`创建/更新profile记录: id=${authUser.id}, email=${authRow.email}`)
+            
+            const { error: upsertErr } = await supabase
+              .from('profiles')
+              .upsert({
+                id: authUser.id,
+                email: authRow.email,
+                full_name: authUser.user_metadata?.full_name || authRow.name || authRow.email.split('@')[0] || '',
+                role: 'student',
+                updated_at: new Date().toISOString(),
+                created_at: new Date().toISOString()
+              }, { onConflict: 'id' })
+              
+            if (upsertErr) {
+              console.error('Upsert profile failed:', upsertErr?.message || upsertErr)
+              return res.status(500).json({ error: 'Failed to create profile', detail: upsertErr.message })
+            }
+            
+            finalUserId = authUser.id
+            console.log(`Profile创建成功，最终userId=${finalUserId}`)
+          } catch (upsertError) {
+            console.error('Error upserting profile:', upsertError)
+            return res.status(500).json({ error: 'Failed to create profile', detail: String(upsertError) })
+          }
+        } else {
+          console.error('无法获取或创建Auth用户')
+          return res.status(500).json({ error: 'Failed to resolve or create auth user' })
+        }
       } else {
-        userId = profile.id as unknown as string
+        finalUserId = profile.id
+        console.log(`找到现有profile: id=${finalUserId}, email=${profile.email}`)
       }
+    } else {
+      console.log(`已经是UUID格式: ${userId}`)
+      finalUserId = userId
     }
+
+    console.log(`开始操作session_students表: finalUserId=${finalUserId}`)
 
     // 删除该学员所有旧关系
     const { error: delErr } = await supabase
       .from('session_students')
       .delete()
-      .eq('user_id', userId)
-    if (delErr) throw delErr
+      .eq('user_id', finalUserId)
+      
+    if (delErr) {
+      console.error('删除旧期次关系失败:', delErr?.message || delErr)
+      throw delErr
+    }
+    
+    console.log(`删除旧期次关系成功`)
 
     // 批量插入新关系（若为空则表示清空）
     if (sessionIds.length > 0) {
-      const rows = sessionIds.map(id => ({ session_id: id, user_id: userId, status: 'active' }))
+      const rows = sessionIds.map(id => ({ session_id: id, user_id: finalUserId, status: 'active' }))
+      console.log(`准备插入${rows.length}个新期次关系`)
+      
       const { error: insErr } = await supabase
         .from('session_students')
         .insert(rows)
-      if (insErr) throw insErr
+        
+      if (insErr) {
+        console.error('插入新期次关系失败:', insErr?.message || insErr)
+        throw insErr
+      }
+      
+      console.log(`插入新期次关系成功`)
+    } else {
+      console.log(`sessionIds为空，仅清空期次关系`)
     }
 
+    console.log(`设置学员期次成功: userId=${finalUserId}`)
     res.json({ success: true })
   } catch (error: any) {
     console.error('Error setting student sessions:', error?.message || error)
-    res.status(500).json({ error: 'Failed to set student sessions', detail: error?.message || String(error) })
+    res.status(500).json({ 
+      error: 'Failed to set student sessions', 
+      detail: error?.message || String(error),
+      userId: req.params.userId
+    })
   }
 })
 
