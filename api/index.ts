@@ -692,6 +692,71 @@ app.put('/api/students/:userId/sessions', async (req, res) => {
   }
 })
 
+// ========== 授权用户管理相关路由 ==========
+app.patch('/api/authorized-users/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const updates = req.body as { name?: string; email?: string; status?: 'active' | 'inactive' }
+
+    console.log('🔧 [后端] 更新授权用户:', { id, updates })
+
+    // 转换ID为数字
+    const numericId = parseInt(id, 10)
+    if (isNaN(numericId)) {
+      console.error('🔧 [后端] 无效的用户ID:', id)
+      return res.status(400).json({ error: 'Invalid user ID' })
+    }
+
+    // 检查邮箱是否已存在（如果要更新邮箱）
+    if (updates.email) {
+      const { data: existing, error: checkErr } = await supabase
+        .from('authorized_users')
+        .select('id')
+        .eq('email', updates.email)
+        .neq('id', numericId)
+        .single()
+
+      if (!checkErr && existing) {
+        console.error('🔧 [后端] 邮箱已存在:', updates.email)
+        return res.status(409).json({ error: '该邮箱已存在' })
+      }
+    }
+
+    // 更新用户信息
+    const { data: updatedUser, error: updateErr } = await supabase
+      .from('authorized_users')
+      .update({
+        ...(updates.name && { name: updates.name }),
+        ...(updates.email && { email: updates.email }),
+        ...(updates.status && { status: updates.status }),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', numericId)
+      .select('*')
+      .single()
+
+    if (updateErr) {
+      console.error('🔧 [后端] 更新用户失败:', updateErr)
+      throw updateErr
+    }
+
+    if (!updatedUser) {
+      console.error('🔧 [后端] 用户不存在:', numericId)
+      return res.status(404).json({ error: '用户不存在' })
+    }
+
+    console.log('🔧 [后端] 用户更新成功:', updatedUser)
+    res.json(updatedUser)
+  } catch (error: any) {
+    console.error('🔧 [后端] 更新授权用户失败:', error?.message || error)
+    res.status(500).json({ 
+      error: '更新失败', 
+      detail: error?.message || String(error),
+      timestamp: new Date().toISOString()
+    })
+  }
+})
+
 // 作业相关路由
 app.get('/api/assignments', async (req, res) => {
   try {
