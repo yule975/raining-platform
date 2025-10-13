@@ -437,18 +437,57 @@ const StudentManagement = () => {
     if (!editingStudent) return;
     try {
       setIsSubmitting(true);
+      console.log('开始保存学员编辑:', { studentId: editingStudent.id, editForm, editSessions });
+      
       // 1) 更新基本信息
+      console.log('更新学员基本信息...');
       const updated = await ApiService.updateAuthorizedUser(editingStudent.id, editForm);
+      console.log('学员基本信息更新成功');
+      
       // 2) 更新所属期次
+      console.log('更新学员期次关系...', editSessions);
       await ApiService.setStudentSessions(editingStudent.id, editSessions);
+      console.log('学员期次关系更新成功');
+      
       // 本地状态更新
       setStudents(prev => prev.map(s => (s.id === updated.id ? { ...s, ...updated } : s)));
-      // 3) 立即刷新“学生-期次”映射，确保列表实时反映
+      
+      // 3) 立即刷新"学生-期次"映射，确保列表实时反映
+      console.log('刷新期次映射数据...');
       await loadSessionsAndBuildTags();
+      console.log('期次映射数据刷新完成');
+      
       setIsEditOpen(false);
-      toast({ title: '保存成功', description: '已更新学员信息与所属期次' });
+      toast({ 
+        title: '保存成功', 
+        description: `已成功更新学员"${editingStudent.name}"的信息与所属期次` 
+      });
     } catch (e: any) {
-      toast({ title: '保存失败', description: e?.message || '请稍后再试', variant: 'destructive' });
+      console.error('保存学员编辑失败:', e);
+      let errorMessage = '请稍后再试';
+      
+      // 根据错误类型提供更具体的错误信息
+      if (e?.message) {
+        if (e.message.includes('Failed to find user in authorized_users')) {
+          errorMessage = '找不到该学员的授权记录，请联系管理员';
+        } else if (e.message.includes('Failed to create auth user')) {
+          errorMessage = '创建用户账户失败，请检查网络连接';
+        } else if (e.message.includes('Failed to create profile')) {
+          errorMessage = '创建用户档案失败，请重试';
+        } else if (e.message.includes('Failed to set student sessions')) {
+          errorMessage = '设置期次关系失败，可能是权限问题';
+        } else if (e.message.includes('该邮箱已存在')) {
+          errorMessage = '该邮箱已被其他学员使用';
+        } else {
+          errorMessage = e.message;
+        }
+      }
+      
+      toast({ 
+        title: '保存失败', 
+        description: errorMessage, 
+        variant: 'destructive' 
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -681,35 +720,101 @@ const StudentManagement = () => {
   const handleSaveBatch = async () => {
     try {
       const ids = Array.from(selectedIds);
+      console.log('开始批量编辑:', { selectedCount: ids.length, batchStatus, batchSessions, batchMode });
+      
+      let successCount = 0;
+      let errorCount = 0;
+      const errors: string[] = [];
+      
       for (const id of ids) {
         const origin = students.find(s => s.id === id);
-        if (!origin) continue;
-        // 1) 状态
-        if (batchStatus !== 'nochange') {
-          await ApiService.updateAuthorizedUser(id, { status: batchStatus as 'active'|'inactive' });
+        if (!origin) {
+          errorCount++;
+          errors.push(`学员ID ${id} 不存在`);
+          continue;
         }
-        // 2) 所属期次
-        if (batchSessions.length > 0 || batchMode === 'replace') {
-          const owning = studentSessionsMap[id]?.map(s => s.id) || [];
-          let next: string[] = owning;
-          if (batchMode === 'replace') {
-            next = batchSessions.slice();
-          } else if (batchMode === 'add') {
-            next = Array.from(new Set([...owning, ...batchSessions]));
-          } else if (batchMode === 'remove') {
-            next = owning.filter(sid => !batchSessions.includes(sid));
+        
+        try {
+          console.log(`处理学员: ${origin.name} (${id})`);
+          
+          // 1) 状态
+          if (batchStatus !== 'nochange') {
+            console.log(`更新学员 ${origin.name} 状态: ${batchStatus}`);
+            await ApiService.updateAuthorizedUser(id, { status: batchStatus as 'active'|'inactive' });
           }
-          await ApiService.setStudentSessions(id, next);
+          
+          // 2) 所属期次
+          if (batchSessions.length > 0 || batchMode === 'replace') {
+            const owning = studentSessionsMap[id]?.map(s => s.id) || [];
+            let next: string[] = owning;
+            if (batchMode === 'replace') {
+              next = batchSessions.slice();
+            } else if (batchMode === 'add') {
+              next = Array.from(new Set([...owning, ...batchSessions]));
+            } else if (batchMode === 'remove') {
+              next = owning.filter(sid => !batchSessions.includes(sid));
+            }
+            console.log(`更新学员 ${origin.name} 期次关系:`, { from: owning, to: next });
+            await ApiService.setStudentSessions(id, next);
+          }
+          
+          successCount++;
+          console.log(`学员 ${origin.name} 处理成功`);
+        } catch (err: any) {
+          errorCount++;
+          const errorMsg = `${origin.name}: ${err?.message || '处理失败'}`;
+          errors.push(errorMsg);
+          console.error(`学员 ${origin.name} 处理失败:`, err);
         }
       }
+      
+      // 刷新数据
+      console.log('刷新学员数据和期次映射...');
       await loadStudents();
       await loadSessionsAndBuildTags();
+      
+      // 重置状态
       setIsBatchOpen(false);
       setSelectedIds(new Set());
       setBatchStatus('nochange');
       setBatchSessions([]);
+      
+      // 显示结果
+      if (successCount > 0) {
+        const successMsg = `成功处理 ${successCount} 个学员`;
+        const errorMsg = errorCount > 0 ? `，${errorCount} 个失败` : '';
+        toast({ 
+          title: '批量编辑完成', 
+          description: successMsg + errorMsg,
+          variant: errorCount > 0 ? 'default' : 'default'
+        });
+        
+        if (errorCount > 0 && errors.length > 0) {
+          console.error('批量编辑错误详情:', errors);
+          // 显示详细错误信息（限制显示前3个错误）
+          const errorDetail = errors.slice(0, 3).join('；');
+          setTimeout(() => {
+            toast({ 
+              title: '部分操作失败', 
+              description: errorDetail + (errors.length > 3 ? '...' : ''),
+              variant: 'destructive' 
+            });
+          }, 1000);
+        }
+      } else {
+        toast({ 
+          title: '批量编辑失败', 
+          description: '没有学员被成功处理',
+          variant: 'destructive' 
+        });
+      }
     } catch (e: any) {
-      toast({ title: '批量保存失败', description: e?.message || '请稍后重试', variant: 'destructive' })
+      console.error('批量编辑整体失败:', e);
+      toast({ 
+        title: '批量保存失败', 
+        description: e?.message || '请稍后重试', 
+        variant: 'destructive' 
+      });
     }
   };
 

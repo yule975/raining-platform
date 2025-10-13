@@ -15,7 +15,7 @@ import { useSession } from "@/contexts/SessionContext";
 import { toast } from "sonner";
 
 const Dashboard = () => {
-  const { user, loading: authLoading, session } = useAuth();
+  const { user, profile, loading: authLoading, session } = useAuth();
   const { currentSession, loading: sessionLoading } = useSession();
   const navigate = useNavigate();
   const [completionStats, setCompletionStats] = useState({
@@ -43,9 +43,8 @@ const Dashboard = () => {
       const userRole = localStorage.getItem('user_role');
       const selectedSessionId = localStorage.getItem('selectedSessionId');
       if (authToken && userRole === 'student' && selectedSessionId) {
-        console.log('Dashboard: 本地快速通道命中，直接使用模拟数据渲染');
+        console.log('Dashboard: 本地快速通道命中，获取真实课程数据');
         setError(null);
-        setCompletionStats({ completedCourses: 2, completionRate: 40 });
         try {
           // 优先取期次课程，其次取所有课程
           let courses = [] as any[];
@@ -59,21 +58,38 @@ const Dashboard = () => {
             courses = await ApiService.getCourses();
           }
           if (courses && courses.length > 0) {
-            setLastCourseId(courses[0].id);
-            setLastCourseTitle(courses[0].title || '继续学习');
-            // 用课程列表填充一个简单的展示数组
+            // 不假装知道用户应该学什么特定课程
+            // 目前没有学习记录，所以不推荐具体课程
+            setLastCourseId(null);
+            setLastCourseTitle('');
+            
+            // 设置真实的课程数据
             setUserCourseCompletions(
-              courses.slice(0, 2).map((c: any) => ({
+              courses.map((c: any) => ({
                 course_id: c.id,
                 title: c.title,
                 description: c.description || '',
                 completion_percentage: 0,
-                status: 'in_progress'
+                status: 'available' // 可学习状态
               }))
             );
+
+            // 计算真实的完成统计 - 基于可访问课程数量
+            const totalCourses = courses.length;
+            // 这里暂时设为0，因为没有具体的完成记录API
+            // 后续可以通过用户学习记录API获取真实完成数据
+            setCompletionStats({ 
+              completedCourses: 0, 
+              completionRate: 0 
+            });
+            console.log('Dashboard: 课程统计', { totalCourses, completedCourses: 0 });
+          } else {
+            // 没有课程时的状态
+            setCompletionStats({ completedCourses: 0, completionRate: 0 });
           }
         } catch (e) {
           console.warn('Dashboard: 获取课程用于继续学习失败', e);
+          setCompletionStats({ completedCourses: 0, completionRate: 0 });
         }
         setLoading(false);
         return;
@@ -105,14 +121,9 @@ const Dashboard = () => {
         console.log('Dashboard: 开始获取用户数据...');
         setError(null);
         
-        // 临时使用模拟数据，避免API调用问题
-        console.log('Dashboard: 使用模拟数据');
-        setCompletionStats({
-          completedCourses: 2,
-          completionRate: 40
-        });
+        // 获取真实的课程数据和学习进度
+        console.log('Dashboard: 获取真实课程数据');
         
-        // 设置模拟的课程数据
         try {
           let courses = [] as any[];
           if (currentSession?.id) {
@@ -121,21 +132,48 @@ const Dashboard = () => {
           if (!courses || courses.length === 0) {
             courses = await ApiService.getCourses();
           }
+          
           if (courses && courses.length > 0) {
-            setLastCourseId(courses[0].id);
-            setLastCourseTitle(courses[0].title || '继续学习');
+            // 诚实处理：不假装知道用户应该学什么
+            // 没有学习记录时，不推荐特定课程
+            setLastCourseId(null);
+            setLastCourseTitle('');
+            
+            // 设置真实的课程完成数据
             setUserCourseCompletions(
-              courses.slice(0, 2).map((c: any) => ({
+              courses.map((c: any) => ({
                 course_id: c.id,
                 title: c.title,
                 description: c.description || '',
                 completion_percentage: 0,
-                status: 'in_progress'
+                status: 'available'
               }))
             );
+
+            // 计算真实的完成统计
+            const totalCourses = courses.length;
+            // 目前设为0，因为暂未实现具体的课程完成追踪
+            // 这里可以根据实际的学习记录API来计算真实完成数
+            const completedCount = 0;
+            const completionRate = totalCourses > 0 ? Math.round((completedCount / totalCourses) * 100) : 0;
+            
+            setCompletionStats({
+              completedCourses: completedCount,
+              completionRate: completionRate
+            });
+            
+            console.log('Dashboard: 真实课程统计', { 
+              totalCourses, 
+              completedCourses: completedCount, 
+              completionRate 
+            });
+          } else {
+            // 没有课程时的状态
+            setCompletionStats({ completedCourses: 0, completionRate: 0 });
           }
         } catch (e) {
-          console.warn('Dashboard: 获取课程用于继续学习失败', e);
+          console.warn('Dashboard: 获取课程数据失败', e);
+          setCompletionStats({ completedCourses: 0, completionRate: 0 });
         }
         
         console.log('Dashboard: 数据设置完成');
@@ -162,7 +200,11 @@ const Dashboard = () => {
     }
     
     const totalCourses = userCourseCompletions.length;
-    const completedCourses = userCourseCompletions.length; // 这里显示的是用户有权限访问的课程数
+    // 计算真实完成的课程数（这里基于completion_percentage或status）
+    const completedCourses = userCourseCompletions.filter(course => 
+      course.status === 'completed' || course.completion_percentage >= 100
+    ).length;
+    
     const overallProgress = totalCourses > 0 ? Math.round((completedCourses / totalCourses) * 100) : 0;
     
     return {
@@ -174,12 +216,9 @@ const Dashboard = () => {
   
   const sessionProgress = calculateSessionProgress();
 
-  const handleContinue = () => {
-    if (lastCourseId) {
-      navigate(`/student/course/${lastCourseId}`);
-    } else {
-      toast.error('未找到可学习的课程');
-    }
+  const handleStartLearning = () => {
+    // 直接跳转到课程列表，让用户自己选择
+    navigate('/student/courses');
   };
 
   // Current Lesson Progress
@@ -251,6 +290,24 @@ const Dashboard = () => {
     return "晚上好";
   };
 
+  // 获取用户显示名称
+  const getUserDisplayName = () => {
+    // 优先使用profile中的full_name
+    if (profile?.full_name) {
+      return profile.full_name;
+    }
+    // 其次使用user metadata中的full_name
+    if (user?.user_metadata?.full_name) {
+      return user.user_metadata.full_name;
+    }
+    // 最后使用email的用户名部分
+    if (user?.email) {
+      return user.email.split('@')[0];
+    }
+    // 兜底显示
+    return '同学';
+  };
+
   // 如果认证或期次还在加载中，显示加载状态
   if (authLoading || sessionLoading || loading) {
     return (
@@ -311,19 +368,19 @@ const Dashboard = () => {
             <div className="space-y-4">
               <div>
                 <h1 className="text-3xl font-bold text-foreground mb-2">
-                  {getGreeting()}，张同学！
+                  {getGreeting()}，{getUserDisplayName()}！
                 </h1>
                 <p className="text-muted-foreground text-lg">
                   今天也是充满能量的一天，继续加油吧！
                 </p>
               </div>
               <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">上次学习到：</p>
+                <p className="text-sm text-muted-foreground">当前期次：</p>
                 <Link 
-                  to={lastCourseId ? `/student/course/${lastCourseId}` : '/student/courses'}
+                  to="/student/courses"
                   className="inline-flex items-center text-primary hover:text-primary/80 font-medium"
                 >
-                  {currentSession ? `《${currentSession.name}》- 当前期次学习` : '暂无当前期次'}
+                  {currentSession ? `《${currentSession.name}》- 浏览可学课程` : '暂无当前期次'}
                 </Link>
                 <div className="flex items-center space-x-2 mt-3">
                   <GraduationCap className="h-5 w-5 text-primary" />
@@ -333,8 +390,8 @@ const Dashboard = () => {
                 </div>
               </div>
               <div className="mt-4 flex flex-col sm:flex-row gap-2 max-w-md">
-                <Button size="lg" className="sm:flex-1" onClick={handleContinue} disabled={!lastCourseId}>
-                  {lastCourseTitle ? `继续：${lastCourseTitle}` : '继续上次学习'}
+                <Button size="lg" className="sm:flex-1" onClick={handleStartLearning}>
+                  浏览课程并开始学习
                 </Button>
                 <Link to="/student/courses" className="sm:flex-1">
                   <Button size="lg" variant="outline" className="w-full">查看全部课程</Button>
