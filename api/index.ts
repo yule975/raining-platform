@@ -502,9 +502,12 @@ app.put('/api/students/:userId/sessions', async (req, res) => {
     let { userId } = req.params
     const { sessionIds } = req.body as { sessionIds: string[] }
 
-    console.log(`设置学员期次: userId=${userId}, sessionIds=[${sessionIds.join(',')}]`)
+    console.log(`🔧 [后端] 设置学员期次开始: userId=${userId}, sessionIds=[${sessionIds.join(',')}]`)
+    console.log(`🔧 [后端] 请求体详情:`, req.body)
+    console.log(`🔧 [后端] userId类型:`, typeof userId, `长度:`, userId.length)
 
     if (!Array.isArray(sessionIds)) {
+      console.error(`🔧 [后端] sessionIds不是数组:`, typeof sessionIds, sessionIds)
       return res.status(400).json({ error: 'sessionIds should be an array' })
     }
 
@@ -529,12 +532,13 @@ app.put('/api/students/:userId/sessions', async (req, res) => {
         .single()
         
       if (authErr) {
-        console.error('Fetch authorized_users failed:', authErr?.message || authErr)
+        console.error('🔧 [后端] Fetch authorized_users failed:', authErr?.message || authErr)
+        console.error('🔧 [后端] Error details:', authErr)
         return res.status(500).json({ error: 'Failed to find user in authorized_users', detail: authErr.message })
       }
       
       if (!authRow?.email) {
-        console.error('User not found in authorized_users')
+        console.error('🔧 [后端] User not found in authorized_users, parsedId:', parsedId)
         return res.status(404).json({ error: 'User not found in authorized_users' })
       }
       
@@ -676,11 +680,14 @@ app.put('/api/students/:userId/sessions', async (req, res) => {
     console.log(`设置学员期次成功: userId=${finalUserId}`)
     res.json({ success: true })
   } catch (error: any) {
-    console.error('Error setting student sessions:', error?.message || error)
+    console.error('🔧 [后端] Error setting student sessions:', error?.message || error)
+    console.error('🔧 [后端] Error stack:', error?.stack)
+    console.error('🔧 [后端] Full error object:', error)
     res.status(500).json({ 
       error: 'Failed to set student sessions', 
       detail: error?.message || String(error),
-      userId: req.params.userId
+      userId: req.params.userId,
+      timestamp: new Date().toISOString()
     })
   }
 })

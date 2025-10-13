@@ -695,14 +695,24 @@ export class ApiService {
   // 设置学员所属期次（覆盖式）
   static async setStudentSessions(userId: string, sessionIds: string[]): Promise<boolean> {
     const base = getApiBaseUrl()
+    console.log('🔧 [前端] setStudentSessions 调用:', { userId, sessionIds, apiUrl: `${base}/api/students/${userId}/sessions` })
+    
     const res = await fetch(`${base}/api/students/${userId}/sessions`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sessionIds })
     })
+    
+    console.log('🔧 [前端] setStudentSessions 响应状态:', res.status, res.statusText)
+    
     if (!res.ok) {
-      throw new Error('设置所属期次失败')
+      const errorText = await res.text()
+      console.error('🔧 [前端] setStudentSessions 错误响应:', errorText)
+      throw new Error(`设置所属期次失败: ${res.status} ${res.statusText} - ${errorText}`)
     }
+    
+    const result = await res.json()
+    console.log('🔧 [前端] setStudentSessions 成功响应:', result)
     return true
   }
 
