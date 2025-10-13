@@ -146,89 +146,155 @@ app.post('/api/courses', async (req, res) => {
 // ========== 导出学生登录凭据 ==========
 app.post('/api/students/export-credentials', async (req, res) => {
   try {
-    const { userIds, sessionIds } = req.body as { userIds: number[]; sessionIds?: string[] }
+    console.log('导出凭证请求:', req.body)
+    const { userIds, sessionIds } = req.body as { userIds: (string|number)[]; sessionIds?: string[] }
     if (!Array.isArray(userIds) || userIds.length === 0) {
+      console.error('导出凭证失败: userIds 为空或无效')
       return res.status(400).json({ error: 'userIds required' })
     }
+
+    // 确保 userIds 转换为数字类型，支持字符串输入
+    const numericUserIds = userIds.map(id => {
+      const numId = typeof id === 'string' ? parseInt(id, 10) : id
+      if (isNaN(numId)) {
+        throw new Error(`Invalid user ID: ${id}`)
+      }
+      return numId
+    })
+    console.log('处理的用户IDs:', numericUserIds)
 
     const { data: users, error: usersErr } = await supabase
       .from('authorized_users')
       .select('id,email,name')
-      .in('id', userIds)
-    if (usersErr) throw usersErr
+      .in('id', numericUserIds)
+    
+    if (usersErr) {
+      console.error('查询用户失败:', usersErr)
+      throw usersErr
+    }
+    
+    console.log('查询到的用户数量:', users?.length || 0)
+    if (!users || users.length === 0) {
+      console.warn('未找到匹配的用户')
+      return res.status(404).json({ error: '未找到匹配的用户' })
+    }
 
     const credentials: any[] = []
-    const { data: listed } = await supabase.auth.admin.listUsers()
+    const { data: listed, error: listErr } = await supabase.auth.admin.listUsers()
+    if (listErr) {
+      console.error('获取认证用户列表失败:', listErr)
+      throw new Error('获取认证用户列表失败: ' + listErr.message)
+    }
+    console.log('现有认证用户数量:', listed?.users?.length || 0)
 
     // 期次名称映射（如果传了期次）
     let sessionNameMap: Record<string, string> = {}
     if (Array.isArray(sessionIds) && sessionIds.length > 0) {
-      const { data: sess } = await supabase
+      console.log('查询期次信息:', sessionIds)
+      const { data: sess, error: sessErr } = await supabase
         .from('training_sessions')
         .select('id,name')
         .in('id', sessionIds)
-      sessionNameMap = (sess || []).reduce((acc: any, s: any) => { acc[s.id] = s.name; return acc }, {})
+      
+      if (sessErr) {
+        console.error('查询期次失败:', sessErr)
+      } else {
+        sessionNameMap = (sess || []).reduce((acc: any, s: any) => { acc[s.id] = s.name; return acc }, {})
+        console.log('期次名称映射:', sessionNameMap)
+      }
     }
 
     const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:8080'}/login`
+    console.log('登录URL:', loginUrl)
 
+    console.log('开始为用户生成凭证...')
     for (const u of users || []) {
-      const email: string = u.email
-      const name: string = u.name || email.split('@')[0]
-      let authUser = listed?.users?.find((x: any) => x.email === email)
-      if (!authUser) {
+      try {
+        const email: string = u.email
+        const name: string = u.name || email.split('@')[0]
+        console.log(`处理用户: ${name} (${email})`)
+        
+        let authUser = listed?.users?.find((x: any) => x.email === email)
         const pwd = generateStrongPassword()
-        const { data: created, error: cErr } = await supabase.auth.admin.createUser({
-          email,
-          password: pwd,
-          email_confirm: true,
-          user_metadata: { full_name: name, must_change_password: true }
-        })
-        if (cErr) throw cErr
-        authUser = created.user
-        credentials.push({
-          name,
-          email,
-          initial_password: pwd,
-          assigned_sessions: (sessionIds || []).join(';'),
-          assigned_session_names: (sessionIds || []).map(id => sessionNameMap[id] || id).join(';'),
-          login_url: loginUrl
-        })
-      } else {
-        const pwd = generateStrongPassword()
-        const { error: uErr } = await supabase.auth.admin.updateUserById(authUser.id, {
-          password: pwd,
-          user_metadata: { ...(authUser.user_metadata || {}), must_change_password: true }
-        })
-        if (uErr) throw uErr
-        credentials.push({
-          name,
-          email,
-          initial_password: pwd,
-          assigned_sessions: (sessionIds || []).join(';'),
-          assigned_session_names: (sessionIds || []).map(id => sessionNameMap[id] || id).join(';'),
-          login_url: loginUrl
-        })
-      }
-
-      // 可选：分配期次
-      if (Array.isArray(sessionIds) && sessionIds.length > 0) {
-        await ensureProfileByEmail(email, name)
-        const { data: profileList } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('email', email)
-          .order('updated_at', { ascending: false })
-          .order('created_at', { ascending: false })
-          .limit(1)
-        const profile = Array.isArray(profileList) ? profileList[0] : (profileList as any)
-        const uuid = profile?.id
-        if (uuid) {
-          await supabase.from('session_students').delete().eq('user_id', uuid)
-          const rows = sessionIds.map(id => ({ session_id: id, user_id: uuid, status: 'active' }))
-          await supabase.from('session_students').insert(rows)
+        
+        if (!authUser) {
+          console.log(`创建新认证用户: ${email}`)
+          const { data: created, error: cErr } = await supabase.auth.admin.createUser({
+            email,
+            password: pwd,
+            email_confirm: true,
+            user_metadata: { full_name: name, must_change_password: true }
+          })
+          if (cErr) {
+            console.error(`创建用户失败 ${email}:`, cErr)
+            throw new Error(`创建用户失败 ${email}: ${cErr.message}`)
+          }
+          authUser = created.user
+          console.log(`用户创建成功: ${email}`)
+        } else {
+          console.log(`更新现有用户密码: ${email}`)
+          const { error: uErr } = await supabase.auth.admin.updateUserById(authUser.id, {
+            password: pwd,
+            user_metadata: { ...(authUser.user_metadata || {}), must_change_password: true }
+          })
+          if (uErr) {
+            console.error(`更新用户密码失败 ${email}:`, uErr)
+            throw new Error(`更新用户密码失败 ${email}: ${uErr.message}`)
+          }
+          console.log(`用户密码更新成功: ${email}`)
         }
+        
+        const credential = {
+          name,
+          email,
+          initial_password: pwd,
+          assigned_sessions: (sessionIds || []).join(';'),
+          assigned_session_names: (sessionIds || []).map(id => sessionNameMap[id] || id).join(';'),
+          login_url: loginUrl
+        }
+        credentials.push(credential)
+        console.log(`凭证生成成功: ${email}`)
+        
+        // 可选：分配期次
+        if (Array.isArray(sessionIds) && sessionIds.length > 0) {
+          try {
+            console.log(`为用户 ${email} 分配期次: ${sessionIds.join(', ')}`)
+            await ensureProfileByEmail(email, name)
+            const { data: profileList } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('email', email)
+              .order('updated_at', { ascending: false })
+              .order('created_at', { ascending: false })
+              .limit(1)
+            const profile = Array.isArray(profileList) ? profileList[0] : (profileList as any)
+            const uuid = profile?.id
+            if (uuid) {
+              await supabase.from('session_students').delete().eq('user_id', uuid)
+              const rows = sessionIds.map(id => ({ session_id: id, user_id: uuid, status: 'active' }))
+              await supabase.from('session_students').insert(rows)
+              console.log(`期次分配成功: ${email}`)
+            } else {
+              console.warn(`未找到用户profile: ${email}`)
+            }
+          } catch (sessionError) {
+            console.error(`为用户 ${email} 分配期次失败:`, sessionError)
+            // 不抛出错误，因为凭证已经生成成功
+          }
+        }
+      } catch (error) {
+        console.error(`处理用户 ${u.email} 时出错:`, error)
+        // 继续处理其他用户，但记录错误
+        throw error
       }
+    }
+
+    console.log(`完成凭证生成，共 ${credentials.length} 个凭证`)
+    
+    // 验证是否有凭证生成
+    if (credentials.length === 0) {
+      console.warn('警告：未生成任何凭证')
+      return res.status(400).json({ error: '未能生成任何用户凭证' })
     }
 
     // 手动拼接 CSV，避免外部依赖
@@ -251,12 +317,21 @@ app.post('/api/students/export-credentials', async (req, res) => {
       ].join(','))
     )
     const csv = rows.join('\n')
+    
+    console.log('CSV生成成功，字节数:', csv.length)
+    console.log('CSV前100个字符:', csv.substring(0, 100))
+    
     res.setHeader('Content-Type', 'text/csv; charset=utf-8')
     res.setHeader('Content-Disposition', 'attachment; filename="credentials.csv"')
     return res.status(200).send(csv)
   } catch (error: any) {
-    console.error('Error export credentials:', error?.message || error)
-    return res.status(500).json({ error: 'Failed to export credentials' })
+    console.error('导出凭证失败:', error?.message || error)
+    console.error('错误详情:', error)
+    return res.status(500).json({ 
+      error: '导出凭证失败', 
+      details: error?.message || '未知错误',
+      timestamp: new Date().toISOString()
+    })
   }
 })
 
