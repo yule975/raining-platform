@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>直接登录测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        .form-group { margin: 15px 0; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        button { background: #007bff; color: white; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; margin: 10px 5px; }
+        button:hover { background: #0056b3; }
+        .result { margin: 20px 0; padding: 15px; border-radius: 4px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .info { background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>直接Supabase登录测试</h1>
+    
+    <div class="form-group">
+        <label for="email">邮箱:</label>
+        <input type="email" id="email" value="admin@example.com" placeholder="输入邮箱">
+    </div>
+    
+    <div class="form-group">
+        <label for="password">密码:</label>
+        <input type="password" id="password" value="admin123" placeholder="输入密码">
+    </div>
+    
+    <button onclick="directLogin()">直接登录测试</button>
+    <button onclick="testConnection()">测试连接</button>
+    <button onclick="clearResults()">清除结果</button>
+    
+    <div id="results"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // 使用正确的 API 密钥
+        const supabaseUrl = 'https://upwrgkhpuwxkbwndxxxs.supabase.co'
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwd3Jna2hwdXd4a2J3bmR4eHhzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3MzU4NzgsImV4cCI6MjA3MjMxMTg3OH0.NyJFFUG5B72cw99TAkmJMifxCM9tAKVN8OrCTBuHwAo'
+        
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey)
+        
+        function showResult(message, type = 'info') {
+            const results = document.getElementById('results')
+            const div = document.createElement('div')
+            div.className = `result ${type}`
+            div.innerHTML = message
+            results.appendChild(div)
+            results.scrollTop = results.scrollHeight
+        }
+        
+        async function testConnection() {
+            showResult('测试Supabase连接...', 'info')
+            try {
+                const response = await fetch(`${supabaseUrl}/rest/v1/`, {
+                    method: 'HEAD',
+                    headers: {
+                        'apikey': supabaseKey
+                    }
+                })
+                showResult(`连接测试完成，状态码: ${response.status}`, response.ok ? 'success' : 'error')
+            } catch (error) {
+                showResult(`连接测试失败: ${error.message}`, 'error')
+            }
+        }
+        
+        async function directLogin() {
+            const email = document.getElementById('email').value
+            const password = document.getElementById('password').value
+            
+            if (!email || !password) {
+                showResult('请输入邮箱和密码', 'error')
+                return
+            }
+            
+            showResult(`开始登录测试: ${email}`, 'info')
+            
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                })
+                
+                if (error) {
+                    showResult(`登录失败: ${error.message}`, 'error')
+                } else {
+                    showResult(`登录成功!<br>用户ID: ${data.user?.id}<br>邮箱: ${data.user?.email}`, 'success')
+                    
+                    // 检查用户角色
+                    if (data.user) {
+                        const role = data.user.user_metadata?.role || data.user.app_metadata?.role || '未设置'
+                        showResult(`用户角色: ${role}`, 'info')
+                    }
+                }
+            } catch (error) {
+                showResult(`登录异常: ${error.message}`, 'error')
+                console.error('登录异常详情:', error)
+            }
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = ''
+        }
+        
+        // 页面加载时自动测试连接
+        window.onload = function() {
+            testConnection()
+        }
+    </script>
+</body>
+</html>

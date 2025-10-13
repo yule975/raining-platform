@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>认证状态调试工具</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+        }
+        .section h3 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .info-item {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .label {
+            font-weight: bold;
+            color: #495057;
+        }
+        .value {
+            color: #28a745;
+            font-family: monospace;
+        }
+        .error {
+            color: #dc3545;
+        }
+        .success {
+            color: #28a745;
+        }
+        .warning {
+            color: #ffc107;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .json-display {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 认证状态调试工具</h1>
+        <p>此工具用于检查当前的用户认证状态和权限设置</p>
+        
+        <div class="section">
+            <h3>📱 LocalStorage 信息</h3>
+            <div id="localStorage-info"></div>
+            <button onclick="clearLocalStorage()">清除 LocalStorage</button>
+        </div>
+        
+        <div class="section">
+            <h3>🔐 Supabase 认证状态</h3>
+            <div id="supabase-auth"></div>
+            <button onclick="checkSupabaseAuth()">检查 Supabase 认证</button>
+        </div>
+        
+        <div class="section">
+            <h3>🌐 API 连接测试</h3>
+            <div id="api-test"></div>
+            <button onclick="testApiConnection()">测试 API 连接</button>
+        </div>
+        
+        <div class="section">
+            <h3>📊 数据获取测试</h3>
+            <div id="data-test"></div>
+            <button onclick="testDataFetch()">测试数据获取</button>
+        </div>
+        
+        <div class="section">
+            <h3>🛠️ 快速修复</h3>
+            <button onclick="setDemoUser()">设置演示用户</button>
+            <button onclick="setAdminRole()">设置管理员角色</button>
+            <button onclick="refreshPage()">刷新页面</button>
+        </div>
+    </div>
+
+    <script type="module">
+        // 显示 LocalStorage 信息
+        function displayLocalStorageInfo() {
+            const container = document.getElementById('localStorage-info');
+            const keys = ['user_role', 'demo_user', 'sb-project-auth-token'];
+            let html = '';
+            
+            keys.forEach(key => {
+                const value = localStorage.getItem(key);
+                html += `
+                    <div class="info-item">
+                        <span class="label">${key}:</span>
+                        <span class="value ${value ? 'success' : 'error'}">
+                            ${value || '未设置'}
+                        </span>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        // 检查 Supabase 认证状态
+        window.checkSupabaseAuth = async function() {
+            const container = document.getElementById('supabase-auth');
+            container.innerHTML = '<div class="info-item">检查中...</div>';
+            
+            try {
+                // 动态导入 Supabase 客户端
+                const { createClient } = await import('https://cdn.skypack.dev/@supabase/supabase-js');
+                const supabaseUrl = 'https://nnqfqxqjqxqjqxqjqxqj.supabase.co';
+                const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ucWZxeHFqcXhxanF4cWpxeHFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU3MjU2NzQsImV4cCI6MjA1MTMwMTY3NH0.example';
+                
+                const supabase = createClient(supabaseUrl, supabaseKey);
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                let html = '';
+                if (error) {
+                    html = `<div class="info-item error">错误: ${error.message}</div>`;
+                } else if (session) {
+                    html = `
+                        <div class="info-item success">✅ 已登录</div>
+                        <div class="info-item"><span class="label">用户邮箱:</span> <span class="value">${session.user.email}</span></div>
+                        <div class="info-item"><span class="label">用户ID:</span> <span class="value">${session.user.id}</span></div>
+                        <div class="info-item"><span class="label">Token过期时间:</span> <span class="value">${new Date(session.expires_at * 1000).toLocaleString()}</span></div>
+                    `;
+                } else {
+                    html = '<div class="info-item warning">⚠️ 未登录</div>';
+                }
+                
+                container.innerHTML = html;
+            } catch (error) {
+                container.innerHTML = `<div class="info-item error">检查失败: ${error.message}</div>`;
+            }
+        };
+        
+        // 测试 API 连接
+        window.testApiConnection = async function() {
+            const container = document.getElementById('api-test');
+            container.innerHTML = '<div class="info-item">测试中...</div>';
+            
+            const endpoints = [
+                'http://localhost:3000/api/training-sessions/current',
+                'http://localhost:3000/api/courses',
+                'http://localhost:3002' // 前端服务
+            ];
+            
+            let html = '';
+            for (const endpoint of endpoints) {
+                try {
+                    const response = await fetch(endpoint, { method: 'HEAD' });
+                    html += `
+                        <div class="info-item ${response.ok ? 'success' : 'error'}">
+                            <span class="label">${endpoint}:</span>
+                            <span class="value">${response.ok ? '✅ 可访问' : '❌ 不可访问 (' + response.status + ')'}</span>
+                        </div>
+                    `;
+                } catch (error) {
+                    html += `
+                        <div class="info-item error">
+                            <span class="label">${endpoint}:</span>
+                            <span class="value">❌ 连接失败: ${error.message}</span>
+                        </div>
+                    `;
+                }
+            }
+            
+            container.innerHTML = html;
+        };
+        
+        // 测试数据获取
+        window.testDataFetch = async function() {
+            const container = document.getElementById('data-test');
+            container.innerHTML = '<div class="info-item">测试中...</div>';
+            
+            try {
+                // 测试获取当前期次
+                const sessionResponse = await fetch('http://localhost:3000/api/training-sessions/current');
+                const sessionData = sessionResponse.ok ? await sessionResponse.json() : null;
+                
+                // 测试获取课程
+                const coursesResponse = await fetch('http://localhost:3000/api/courses');
+                const coursesData = coursesResponse.ok ? await coursesResponse.json() : null;
+                
+                let html = `
+                    <div class="info-item ${sessionData ? 'success' : 'warning'}">
+                        <span class="label">当前期次:</span>
+                        <span class="value">${sessionData ? sessionData.name : '无当前期次'}</span>
+                    </div>
+                    <div class="info-item ${coursesData ? 'success' : 'error'}">
+                        <span class="label">课程数量:</span>
+                        <span class="value">${coursesData ? coursesData.length : 0}</span>
+                    </div>
+                `;
+                
+                if (coursesData && coursesData.length > 0) {
+                    html += '<div class="json-display">' + JSON.stringify(coursesData, null, 2) + '</div>';
+                }
+                
+                container.innerHTML = html;
+            } catch (error) {
+                container.innerHTML = `<div class="info-item error">测试失败: ${error.message}</div>`;
+            }
+        };
+        
+        // 设置演示用户
+        window.setDemoUser = function() {
+            const demoUser = {
+                id: 'demo-user-001',
+                email: 'demo@example.com',
+                fullName: '演示用户',
+                role: 'student',
+                avatarUrl: ''
+            };
+            
+            localStorage.setItem('demo_user', JSON.stringify(demoUser));
+            localStorage.setItem('user_role', 'student');
+            alert('演示用户已设置！请刷新页面。');
+            displayLocalStorageInfo();
+        };
+        
+        // 设置管理员角色
+        window.setAdminRole = function() {
+            localStorage.setItem('user_role', 'admin');
+            alert('管理员角色已设置！请刷新页面。');
+            displayLocalStorageInfo();
+        };
+        
+        // 清除 LocalStorage
+        window.clearLocalStorage = function() {
+            localStorage.clear();
+            alert('LocalStorage 已清除！');
+            displayLocalStorageInfo();
+        };
+        
+        // 刷新页面
+        window.refreshPage = function() {
+            window.location.reload();
+        };
+        
+        // 初始化显示
+        displayLocalStorageInfo();
+    </script>
+</body>
+</html>

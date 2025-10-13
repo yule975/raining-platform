@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Frontend API Test</title>
+</head>
+<body>
+    <h1>Frontend API Test</h1>
+    <button onclick="testCourseAPI()">Test Course API</button>
+    <button onclick="testSessionAPI()">Test Session API</button>
+    <div id="result"></div>
+
+    <script>
+        async function testCourseAPI() {
+            try {
+                const response = await fetch('http://localhost:3000/api/courses');
+                const data = await response.json();
+                document.getElementById('result').innerHTML = '<h3>Courses:</h3><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                document.getElementById('result').innerHTML = '<h3>Error:</h3>' + error.message;
+            }
+        }
+
+        async function testSessionAPI() {
+            try {
+                const response = await fetch('http://localhost:3000/api/training-sessions');
+                const data = await response.json();
+                document.getElementById('result').innerHTML = '<h3>Sessions:</h3><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                document.getElementById('result').innerHTML = '<h3>Error:</h3>' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

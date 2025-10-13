@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>前端数据显示修复工具</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+        .success { background: #d4edda; border-color: #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        .info { background: #d1ecf1; border-color: #bee5eb; color: #0c5460; }
+        button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        .danger { background: #dc3545; }
+        .danger:hover { background: #c82333; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; max-height: 300px; }
+        .data-item { margin: 5px 0; padding: 8px; background: #f8f9fa; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>🔧 前端数据显示修复工具</h1>
+    
+    <div class="section info">
+        <h3>📊 数据状态检查</h3>
+        <p>首先检查数据库中的实际数据状态</p>
+        <button onclick="checkDatabaseData()">检查数据库数据</button>
+        <div id="database-status"></div>
+    </div>
+    
+    <div class="section">
+        <h3>🔐 用户认证状态</h3>
+        <button onclick="checkAuthStatus()">检查认证状态</button>
+        <button onclick="loginAsAdmin()">管理员登录</button>
+        <button onclick="logout()">退出登录</button>
+        <div id="auth-status"></div>
+    </div>
+    
+    <div class="section">
+        <h3>🔄 缓存清理</h3>
+        <p>清理可能导致数据显示问题的缓存</p>
+        <button onclick="clearLocalStorage()">清除本地存储</button>
+        <button onclick="clearSessionStorage()">清除会话存储</button>
+        <button onclick="clearAllCache()">清除所有缓存</button>
+        <div id="cache-status"></div>
+    </div>
+    
+    <div class="section">
+        <h3>📡 API测试</h3>
+        <p>测试前端API调用是否正常</p>
+        <button onclick="testCourseAPI()">测试课程API</button>
+        <button onclick="testAssignmentAPI()">测试作业API</button>
+        <button onclick="testSessionAPI()">测试期次API</button>
+        <div id="api-status"></div>
+    </div>
+    
+    <div class="section">
+        <h3>🚀 快速修复</h3>
+        <button onclick="quickFix()" class="danger">一键修复所有问题</button>
+        <button onclick="openMainSite()">打开主站</button>
+        <div id="fix-status"></div>
+    </div>
+    
+    <div id="results"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const supabaseUrl = 'https://upwrgkhpuwxkbwndxxxs.supabase.co'
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwd3Jna2hwdXd4a2J3bmR4eHhzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3MzU4NzgsImV4cCI6MjA3MjMxMTg3OH0.NyJFFUG5B72cw99TAkmJMifxCM9tAKVN8OrCTBuHwAo'
+        
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey)
+        
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId)
+            element.innerHTML = `<div class="${type}" style="margin-top: 10px; padding: 10px; border-radius: 4px;">${message}</div>`
+        }
+        
+        async function checkDatabaseData() {
+            showResult('database-status', '正在检查数据库数据...', 'info')
+            try {
+                const [coursesRes, assignmentsRes, sessionsRes] = await Promise.all([
+                    supabase.from('courses').select('*'),
+                    supabase.from('assignments').select('*'),
+                    supabase.from('training_sessions').select('*')
+                ])
+                
+                let html = '<h4>数据库数据状态:</h4>'
+                html += `<div class="data-item">📚 课程: ${coursesRes.data?.length || 0} 个</div>`
+                html += `<div class="data-item">📋 作业: ${assignmentsRes.data?.length || 0} 个</div>`
+                html += `<div class="data-item">🎯 期次: ${sessionsRes.data?.length || 0} 个</div>`
+                
+                if (coursesRes.data?.length > 0) {
+                    html += '<h5>课程列表:</h5>'
+                    coursesRes.data.forEach((course, i) => {
+                        html += `<div class="data-item">${i+1}. ${course.title}</div>`
+                    })
+                }
+                
+                showResult('database-status', html, 'success')
+            } catch (error) {
+                showResult('database-status', `数据检查失败: ${error.message}`, 'error')
+            }
+        }
+        
+        async function checkAuthStatus() {
+            try {
+                const { data: { user } } = await supabase.auth.getUser()
+                if (user) {
+                    showResult('auth-status', `✅ 已登录: ${user.email} (ID: ${user.id})`, 'success')
+                } else {
+                    showResult('auth-status', '❌ 未登录', 'error')
+                }
+            } catch (error) {
+                showResult('auth-status', `认证检查失败: ${error.message}`, 'error')
+            }
+        }
+        
+        async function loginAsAdmin() {
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: 'admin@example.com',
+                    password: 'admin123'
+                })
+                
+                if (error) {
+                    showResult('auth-status', `登录失败: ${error.message}`, 'error')
+                } else {
+                    showResult('auth-status', `✅ 登录成功: ${data.user.email}`, 'success')
+                }
+            } catch (error) {
+                showResult('auth-status', `登录异常: ${error.message}`, 'error')
+            }
+        }
+        
+        async function logout() {
+            try {
+                await supabase.auth.signOut()
+                showResult('auth-status', '✅ 已退出登录', 'success')
+            } catch (error) {
+                showResult('auth-status', `退出失败: ${error.message}`, 'error')
+            }
+        }
+        
+        function clearLocalStorage() {
+            localStorage.clear()
+            showResult('cache-status', '✅ 本地存储已清除', 'success')
+        }
+        
+        function clearSessionStorage() {
+            sessionStorage.clear()
+            showResult('cache-status', '✅ 会话存储已清除', 'success')
+        }
+        
+        function clearAllCache() {
+            localStorage.clear()
+            sessionStorage.clear()
+            // 清除 Supabase 相关缓存
+            const keys = Object.keys(localStorage)
+            keys.forEach(key => {
+                if (key.includes('supabase') || key.includes('auth')) {
+                    localStorage.removeItem(key)
+                }
+            })
+            showResult('cache-status', '✅ 所有缓存已清除，建议刷新页面', 'success')
+        }
+        
+        async function testCourseAPI() {
+            try {
+                const { data, error } = await supabase.from('courses').select('*')
+                if (error) {
+                    showResult('api-status', `课程API错误: ${error.message}`, 'error')
+                } else {
+                    showResult('api-status', `✅ 课程API正常，返回 ${data.length} 个课程`, 'success')
+                }
+            } catch (error) {
+                showResult('api-status', `课程API异常: ${error.message}`, 'error')
+            }
+        }
+        
+        async function testAssignmentAPI() {
+            try {
+                const { data, error } = await supabase.from('assignments').select('*')
+                if (error) {
+                    showResult('api-status', `作业API错误: ${error.message}`, 'error')
+                } else {
+                    showResult('api-status', `✅ 作业API正常，返回 ${data.length} 个作业`, 'success')
+                }
+            } catch (error) {
+                showResult('api-status', `作业API异常: ${error.message}`, 'error')
+            }
+        }
+        
+        async function testSessionAPI() {
+            try {
+                const { data, error } = await supabase.from('training_sessions').select('*')
+                if (error) {
+                    showResult('api-status', `期次API错误: ${error.message}`, 'error')
+                } else {
+                    showResult('api-status', `✅ 期次API正常，返回 ${data.length} 个期次`, 'success')
+                }
+            } catch (error) {
+                showResult('api-status', `期次API异常: ${error.message}`, 'error')
+            }
+        }
+        
+        async function quickFix() {
+            showResult('fix-status', '🔧 开始快速修复...', 'info')
+            
+            // 1. 清除所有缓存
+            clearAllCache()
+            
+            // 2. 重新登录
+            try {
+                await supabase.auth.signOut()
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: 'admin@example.com',
+                    password: 'admin123'
+                })
+                
+                if (error) {
+                    showResult('fix-status', `修复失败: ${error.message}`, 'error')
+                    return
+                }
+            } catch (error) {
+                showResult('fix-status', `修复异常: ${error.message}`, 'error')
+                return
+            }
+            
+            // 3. 测试数据访问
+            try {
+                const [coursesRes, assignmentsRes, sessionsRes] = await Promise.all([
+                    supabase.from('courses').select('*'),
+                    supabase.from('assignments').select('*'),
+                    supabase.from('training_sessions').select('*')
+                ])
+                
+                let message = '✅ 快速修复完成！<br>'
+                message += `📚 课程: ${coursesRes.data?.length || 0} 个<br>`
+                message += `📋 作业: ${assignmentsRes.data?.length || 0} 个<br>`
+                message += `🎯 期次: ${sessionsRes.data?.length || 0} 个<br>`
+                message += '<br>🔄 请刷新主站页面查看数据'
+                
+                showResult('fix-status', message, 'success')
+            } catch (error) {
+                showResult('fix-status', `数据测试失败: ${error.message}`, 'error')
+            }
+        }
+        
+        function openMainSite() {
+            window.open('http://localhost:3002', '_blank')
+        }
+        
+        // 页面加载时自动检查
+        window.onload = function() {
+            checkDatabaseData()
+            checkAuthStatus()
+        }
+    </script>
+</body>
+</html>

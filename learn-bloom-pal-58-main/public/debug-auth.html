@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>认证调试工具</title>
+    <style>
+        body {
+            font-family: monospace;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-size: 12px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 认证状态调试工具</h1>
+        
+        <div class="actions">
+            <button onclick="checkAuthState()">检查认证状态</button>
+            <button onclick="testLogin()">测试登录</button>
+            <button onclick="clearAuth()">清除认证</button>
+            <button onclick="clearLog()">清除日志</button>
+        </div>
+        
+        <div id="status" class="status" style="display: none;"></div>
+        
+        <div class="log" id="log">点击上方按钮开始调试...</div>
+    </div>
+
+    <script type="module">
+        import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js@2'
+        
+        const supabase = createClient(
+            'https://upwrgkhpuwxkbwndxxxs.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwd3Jna2hwdXd4a2J3bmR4eHhzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3MzU4NzgsImV4cCI6MjA3MjMxMTg3OH0.NyJFFUG5B72cw99TAkmJMifxCM9tAKVN8OrCTBuHwAo'
+        )
+        
+        function log(message, type = 'info') {
+            const logElement = document.getElementById('log')
+            const timestamp = new Date().toLocaleTimeString()
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : 'ℹ️'
+            logElement.textContent += `[${timestamp}] ${prefix} ${message}\n`
+            logElement.scrollTop = logElement.scrollHeight
+        }
+        
+        function showStatus(message, type = 'success') {
+            const status = document.getElementById('status')
+            status.className = `status ${type}`
+            status.textContent = message
+            status.style.display = 'block'
+            setTimeout(() => {
+                status.style.display = 'none'
+            }, 3000)
+        }
+        
+        async function checkAuthState() {
+            log('=== 检查认证状态 ===')
+            
+            try {
+                // 1. 检查 localStorage
+                log('1. 检查 localStorage...')
+                const authKeys = ['auth_token', 'user_role', 'user_email', 'demo_user']
+                authKeys.forEach(key => {
+                    const value = localStorage.getItem(key)
+                    log(`   ${key}: ${value || '未设置'}`)
+                })
+                
+                // 2. 检查 Supabase session
+                log('\n2. 检查 Supabase session...')
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+                
+                if (sessionError) {
+                    log(`   Session错误: ${sessionError.message}`, 'error')
+                } else if (session) {
+                    log(`   ✅ Session存在`)
+                    log(`   用户ID: ${session.user.id}`)
+                    log(`   邮箱: ${session.user.email}`)
+                    log(`   Token过期时间: ${new Date(session.expires_at * 1000).toLocaleString()}`)
+                } else {
+                    log(`   ❌ 无Session`)
+                }
+                
+                // 3. 检查当前用户
+                log('\n3. 检查当前用户...')
+                const { data: { user }, error: userError } = await supabase.auth.getUser()
+                
+                if (userError) {
+                    log(`   用户错误: ${userError.message}`, 'error')
+                } else if (user) {
+                    log(`   ✅ 用户存在`)
+                    log(`   用户ID: ${user.id}`)
+                    log(`   邮箱: ${user.email}`)
+                    log(`   元数据: ${JSON.stringify(user.user_metadata, null, 2)}`)
+                } else {
+                    log(`   ❌ 无用户`)
+                }
+                
+                // 4. 检查 profiles
+                if (user) {
+                    log('\n4. 检查 profiles...')
+                    try {
+                        const { data: profile, error: profileError } = await supabase
+                            .from('profiles')
+                            .select('*')
+                            .eq('id', user.id)
+                            .single()
+                        
+                        if (profileError) {
+                            log(`   Profile错误: ${profileError.message}`, 'error')
+                            log(`   详细错误: ${JSON.stringify(profileError, null, 2)}`)
+                        } else if (profile) {
+                            log(`   ✅ Profile存在`)
+                            log(`   Profile数据: ${JSON.stringify(profile, null, 2)}`)
+                        } else {
+                            log(`   ❌ Profile不存在`)
+                        }
+                    } catch (profileErr) {
+                        log(`   Profile查询异常: ${profileErr.message}`, 'error')
+                    }
+                }
+                
+                showStatus('认证状态检查完成', 'success')
+                
+            } catch (error) {
+                log(`检查过程出错: ${error.message}`, 'error')
+                showStatus('检查失败', 'error')
+            }
+        }
+        
+        async function testLogin() {
+            log('=== 测试登录 ===')
+            
+            try {
+                // 先登出
+                await supabase.auth.signOut()
+                log('已清除现有session')
+                
+                // 登录
+                log('尝试登录 student@test.com...')
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: 'student@test.com',
+                    password: 'testpass123'
+                })
+                
+                if (error) {
+                    log(`登录失败: ${error.message}`, 'error')
+                    showStatus('登录失败', 'error')
+                    return
+                }
+                
+                log('✅ 登录成功!')
+                log(`用户ID: ${data.user.id}`)
+                log(`邮箱: ${data.user.email}`)
+                
+                // 等待一秒再检查 profile
+                setTimeout(async () => {
+                    await checkAuthState()
+                }, 1000)
+                
+                showStatus('登录成功', 'success')
+                
+            } catch (error) {
+                log(`登录过程出错: ${error.message}`, 'error')
+                showStatus('登录异常', 'error')
+            }
+        }
+        
+        async function clearAuth() {
+            log('=== 清除认证 ===')
+            
+            // 清除 localStorage
+            const authKeys = ['auth_token', 'user_role', 'user_email', 'demo_user', 'login_time']
+            authKeys.forEach(key => {
+                localStorage.removeItem(key)
+            })
+            log('已清除 localStorage')
+            
+            // 清除 Supabase session
+            await supabase.auth.signOut()
+            log('已清除 Supabase session')
+            
+            showStatus('认证已清除', 'success')
+        }
+        
+        function clearLog() {
+            document.getElementById('log').textContent = ''
+        }
+        
+        // 监听认证状态变化
+        supabase.auth.onAuthStateChange((event, session) => {
+            log(`🔄 Auth状态变化: ${event}`)
+            if (session) {
+                log(`   Session: ${session.user.email}`)
+            }
+        })
+        
+        // 导出到全局作用域
+        window.checkAuthState = checkAuthState
+        window.testLogin = testLogin
+        window.clearAuth = clearAuth
+        window.clearLog = clearLog
+        
+        // 页面加载时自动检查一次
+        setTimeout(checkAuthState, 500)
+    </script>
+</body>
+</html>

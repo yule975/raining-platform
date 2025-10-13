@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>作业管理修复工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 16px;
+            width: 100%;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .success {
+            background: #28a745;
+        }
+        .success:hover {
+            background: #1e7e34;
+        }
+        .warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        .warning:hover {
+            background: #e0a800;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+        .status.show {
+            display: block;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .api-test {
+            background: #e7f3ff;
+            border: 1px solid #b8daff;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 作业管理修复工具</h1>
+        
+        <div class="info">
+            <strong>问题：</strong>学员作业管理界面无法加载，一直转圈<br>
+            <strong>原因：</strong>API权限问题或作业数据获取失败
+        </div>
+        
+        <div class="actions">
+            <button onclick="testAssignmentAPI()" class="warning">测试作业API</button>
+            <button onclick="checkAssignmentData()" class="warning">检查作业数据</button>
+            <button onclick="fixAndReload()" class="success">修复并重新加载</button>
+            <button onclick="goToAssignments()">直接进入作业页面</button>
+        </div>
+        
+        <div id="status" class="status"></div>
+        
+        <div id="api-results" class="api-test" style="display: none;">
+            <strong>API测试结果：</strong><br>
+            <div id="api-content"></div>
+        </div>
+        
+        <div id="log" class="log" style="display: none;">
+            <div id="log-content"></div>
+        </div>
+        
+        <div class="info">
+            <strong>修复步骤：</strong><br>
+            1. 测试作业API - 确认后端服务正常<br>
+            2. 检查作业数据 - 验证能获取到作业信息<br>
+            3. 修复并重新加载 - 重置状态并跳转<br>
+            4. 直接进入作业页面 - 强制跳转到作业管理
+        </div>
+    </div>
+
+    <script>
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const logContent = document.getElementById('log-content');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            logContent.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.style.display = 'block';
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function showStatus(message, type = 'success') {
+            const status = document.getElementById('status');
+            status.className = `status show ${type}`;
+            status.textContent = message;
+            setTimeout(() => {
+                status.classList.remove('show');
+            }, 5000);
+        }
+
+        function showAPIResult(result) {
+            const apiDiv = document.getElementById('api-results');
+            const apiContent = document.getElementById('api-content');
+            
+            apiContent.innerHTML = result;
+            apiDiv.style.display = 'block';
+        }
+
+        async function testAssignmentAPI() {
+            log('=== 测试作业API ===');
+            showStatus('正在测试作业API...', 'success');
+            
+            const tests = [
+                { name: '后端健康检查', url: 'http://localhost:3000/health' },
+                { name: '作业列表API', url: 'http://localhost:3000/api/assignments' },
+                { name: '作业提交API', url: 'http://localhost:3000/api/assignments/test/submissions/student-1' }
+            ];
+            
+            let results = '';
+            
+            for (const test of tests) {
+                try {
+                    log(`测试 ${test.name}...`);
+                    const response = await fetch(test.url);
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        results += `✅ ${test.name}: 成功<br>`;
+                        log(`✅ ${test.name}: 成功`);
+                        
+                        if (test.name === '作业列表API') {
+                            log(`   - 作业数量: ${Array.isArray(data) ? data.length : 'N/A'}`);
+                        }
+                    } else {
+                        results += `❌ ${test.name}: 失败 (${response.status})<br>`;
+                        log(`❌ ${test.name}: 失败 - ${response.status}`);
+                    }
+                } catch (error) {
+                    results += `❌ ${test.name}: 连接失败<br>`;
+                    log(`❌ ${test.name}: 连接失败 - ${error.message}`);
+                }
+            }
+            
+            showAPIResult(results);
+            showStatus('作业API测试完成', 'success');
+        }
+
+        async function checkAssignmentData() {
+            log('=== 检查作业数据 ===');
+            showStatus('正在检查作业数据...', 'success');
+            
+            try {
+                const response = await fetch('http://localhost:3000/api/assignments');
+                const assignments = await response.json();
+                
+                if (response.ok && Array.isArray(assignments)) {
+                    log(`✅ 获取到 ${assignments.length} 个作业`);
+                    let assignmentInfo = `找到 ${assignments.length} 个作业：<br>`;
+                    
+                    if (assignments.length === 0) {
+                        assignmentInfo += `⚠️ 数据库中暂无作业数据，将使用模拟数据<br>`;
+                        log('   - 数据库中暂无作业，前端将使用模拟数据');
+                    } else {
+                        assignments.slice(0, 3).forEach((assignment, index) => {
+                            assignmentInfo += `${index + 1}. ${assignment.title || '未命名'}<br>`;
+                            log(`   - ${assignment.title || '未命名'}`);
+                        });
+                        
+                        if (assignments.length > 3) {
+                            assignmentInfo += `... 还有 ${assignments.length - 3} 个作业<br>`;
+                        }
+                    }
+                    
+                    showAPIResult(assignmentInfo);
+                    showStatus('作业数据检查完成', 'success');
+                } else {
+                    log('❌ 作业数据获取失败或格式错误');
+                    showStatus('作业数据获取失败', 'error');
+                }
+            } catch (error) {
+                log(`❌ 作业数据检查失败: ${error.message}`);
+                showStatus('作业数据检查失败，将使用模拟数据', 'warning');
+            }
+        }
+
+        function fixAndReload() {
+            log('=== 修复并重新加载 ===');
+            
+            // 确保有认证状态
+            if (!localStorage.getItem('auth_token') && !localStorage.getItem('demo_user')) {
+                log('设置基本认证状态...');
+                localStorage.setItem('auth_token', 'student_auth_token');
+                localStorage.setItem('user_role', 'student');
+                localStorage.setItem('user_email', 'student@test.com');
+            }
+            
+            // 确保有期次选择
+            if (!localStorage.getItem('selectedSessionId') || localStorage.getItem('selectedSessionId') === 'default-session-id') {
+                log('设置期次选择...');
+                localStorage.setItem('selectedSessionId', '3aec32c0-11f9-4dd4-935e-67b3b8b20974');
+            }
+            
+            log('重新加载作业页面...');
+            showStatus('正在修复并跳转...', 'success');
+            
+            setTimeout(() => {
+                window.location.href = '/student/assignments';
+            }, 1000);
+        }
+
+        function goToAssignments() {
+            log('=== 直接进入作业页面 ===');
+            showStatus('正在跳转到作业页面...', 'success');
+            
+            setTimeout(() => {
+                window.location.href = '/student/assignments';
+            }, 500);
+        }
+    </script>
+</body>
+</html>

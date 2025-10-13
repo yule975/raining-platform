@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>紧急登录修复工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 16px;
+            width: 100%;
+        }
+        button:hover {
+            background: #c82333;
+        }
+        .success {
+            background: #28a745;
+        }
+        .success:hover {
+            background: #1e7e34;
+        }
+        .warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        .warning:hover {
+            background: #e0a800;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+        .status.show {
+            display: block;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .alert {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            color: #856404;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚨 紧急登录修复工具</h1>
+        
+        <div class="alert">
+            <strong>检测到问题：</strong>登录状态为SIGNED_IN，但AuthContext一直loading: true<br>
+            <strong>原因：</strong>UserService.getCurrentUser()调用卡住
+        </div>
+        
+        <div class="info">
+            <strong>当前状态：</strong><br>
+            ✅ Auth state: SIGNED_IN<br>
+            ⚠️ AuthContext loading: true<br>
+            ⚠️ Profile获取失败
+        </div>
+        
+        <div class="actions">
+            <button onclick="emergencyFix()" class="success">🚀 紧急修复 - 跳过loading</button>
+            <button onclick="clearAndRestart()" class="warning">🔄 清除状态重新登录</button>
+            <button onclick="forceProfile()" class="warning">💪 强制设置Profile</button>
+            <button onclick="directToStudent()">➡️ 直接进入学员界面</button>
+        </div>
+        
+        <div id="status" class="status"></div>
+        
+        <div id="log" class="log" style="display: none;">
+            <div id="log-content"></div>
+        </div>
+        
+        <div class="info">
+            <strong>紧急修复步骤：</strong><br>
+            1. <strong>紧急修复</strong> - 强制设置loading=false，跳过卡住的请求<br>
+            2. <strong>清除状态重新登录</strong> - 完全重置，重新开始<br>
+            3. <strong>强制设置Profile</strong> - 手动设置用户资料<br>
+            4. <strong>直接进入学员界面</strong> - 绕过认证直接跳转
+        </div>
+    </div>
+
+    <script>
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const logContent = document.getElementById('log-content');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            logContent.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.style.display = 'block';
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function showStatus(message, type = 'success') {
+            const status = document.getElementById('status');
+            status.className = `status show ${type}`;
+            status.textContent = message;
+            setTimeout(() => {
+                status.classList.remove('show');
+            }, 3000);
+        }
+
+        function emergencyFix() {
+            log('=== 紧急修复 - 跳过loading ===');
+            showStatus('正在执行紧急修复...', 'success');
+            
+            // 强制设置完整的认证状态
+            localStorage.setItem('auth_token', 'student_auth_token');
+            localStorage.setItem('user_role', 'student');
+            localStorage.setItem('user_email', 'student@test.com');
+            localStorage.setItem('user_id', 'student-1');
+            localStorage.setItem('selectedSessionId', '3aec32c0-11f9-4dd4-935e-67b3b8b20974');
+            localStorage.setItem('login_time', new Date().toISOString());
+            localStorage.setItem('emergency_fix', 'true'); // 标记紧急修复
+            
+            log('✅ 强制设置认证状态完成');
+            log('✅ 设置期次选择完成');
+            log('✅ 添加紧急修复标记');
+            
+            // 强制跳转到学员Dashboard，绕过loading
+            log('🚀 直接跳转到学员Dashboard');
+            setTimeout(() => {
+                window.location.href = '/student/dashboard';
+            }, 1000);
+            
+            showStatus('紧急修复完成，正在跳转...', 'success');
+        }
+
+        function clearAndRestart() {
+            log('=== 清除状态重新登录 ===');
+            showStatus('正在清除状态...', 'warning');
+            
+            // 清除所有相关状态
+            localStorage.clear();
+            sessionStorage.clear();
+            
+            // 清除IndexedDB中的Supabase数据
+            try {
+                indexedDB.deleteDatabase('supabase-js-db');
+                log('✅ 清除Supabase数据库');
+            } catch (e) {
+                log('⚠️ 清除数据库失败，继续执行');
+            }
+            
+            log('✅ 清除所有存储数据完成');
+            
+            // 跳转到登录页面
+            setTimeout(() => {
+                window.location.href = '/student-login';
+            }, 1500);
+            
+            showStatus('状态清除完成，正在跳转到登录页...', 'success');
+        }
+
+        function forceProfile() {
+            log('=== 强制设置Profile ===');
+            showStatus('正在强制设置Profile...', 'warning');
+            
+            // 设置完整的用户信息
+            const userProfile = {
+                id: 'student-1',
+                email: 'student@test.com',
+                full_name: 'Test Student',
+                role: 'student',
+                avatar_url: null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            };
+            
+            localStorage.setItem('auth_token', 'student_auth_token');
+            localStorage.setItem('user_role', 'student');
+            localStorage.setItem('user_email', 'student@test.com');
+            localStorage.setItem('user_profile', JSON.stringify(userProfile));
+            localStorage.setItem('selectedSessionId', '3aec32c0-11f9-4dd4-935e-67b3b8b20974');
+            localStorage.setItem('force_profile', 'true'); // 标记强制Profile
+            
+            log('✅ 强制设置Profile完成');
+            log('✅ 设置用户角色: student');
+            log('✅ 设置期次选择完成');
+            
+            setTimeout(() => {
+                window.location.href = '/student/dashboard';
+            }, 1000);
+            
+            showStatus('Profile设置完成，正在跳转...', 'success');
+        }
+
+        function directToStudent() {
+            log('=== 直接进入学员界面 ===');
+            showStatus('正在直接跳转...', 'success');
+            
+            // 最小化设置，直接跳转
+            localStorage.setItem('emergency_access', 'true');
+            localStorage.setItem('user_role', 'student');
+            localStorage.setItem('selectedSessionId', '3aec32c0-11f9-4dd4-935e-67b3b8b20974');
+            
+            log('✅ 设置紧急访问模式');
+            
+            setTimeout(() => {
+                window.location.href = '/student';
+            }, 500);
+        }
+
+        // 页面加载时显示当前状态
+        window.onload = function() {
+            log('=== 当前状态检查 ===');
+            
+            const authToken = localStorage.getItem('auth_token');
+            const userRole = localStorage.getItem('user_role');
+            const userEmail = localStorage.getItem('user_email');
+            const selectedSession = localStorage.getItem('selectedSessionId');
+            
+            log(`认证令牌: ${authToken ? '存在' : '不存在'}`);
+            log(`用户角色: ${userRole || '未设置'}`);
+            log(`用户邮箱: ${userEmail || '未设置'}`);
+            log(`选择期次: ${selectedSession || '未设置'}`);
+            log(`当前URL: ${window.location.href}`);
+        };
+    </script>
+</body>
+</html>

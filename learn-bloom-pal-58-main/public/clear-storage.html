@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>清理浏览器存储</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .danger {
+            background: #dc3545;
+        }
+        .danger:hover {
+            background: #c82333;
+        }
+        .success {
+            background: #28a745;
+        }
+        .info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+        .status.show {
+            display: block;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 培训平台 - 浏览器存储清理工具</h1>
+        
+        <div class="info">
+            <strong>使用说明：</strong><br>
+            如果您遇到登录问题或页面显示异常，可能是浏览器存储的数据过期导致的。<br>
+            点击下面的按钮来清理相关数据，然后重新登录。
+        </div>
+        
+        <div id="current-storage" class="info">
+            <strong>当前存储状态：</strong><br>
+            <div id="storage-info">正在检查...</div>
+        </div>
+        
+        <div class="actions">
+            <button onclick="clearAuthData()">清理认证数据</button>
+            <button onclick="clearAllStorage()" class="danger">清理所有数据</button>
+            <button onclick="checkStorage()">检查存储状态</button>
+            <button onclick="goToLogin()" class="success">去登录页面</button>
+        </div>
+        
+        <div id="status" class="status"></div>
+        
+        <div class="info">
+            <strong>测试账号：</strong><br>
+            • 学员账号：student@test.com / testpass123<br>
+            • 管理员账号：admin@test.com / testpass123<br>
+            • 其他学员：2440164519@qq.com / test123456<br>
+        </div>
+    </div>
+
+    <script>
+        function showStatus(message, type = 'success') {
+            const status = document.getElementById('status');
+            status.className = `status show ${type}`;
+            status.textContent = message;
+            setTimeout(() => {
+                status.classList.remove('show');
+            }, 3000);
+        }
+
+        function clearAuthData() {
+            const authKeys = [
+                'auth_token',
+                'user_role', 
+                'user_email',
+                'login_time',
+                'demo_user',
+                'supabase.auth.token'
+            ];
+            
+            let clearedCount = 0;
+            authKeys.forEach(key => {
+                if (localStorage.getItem(key)) {
+                    localStorage.removeItem(key);
+                    clearedCount++;
+                }
+            });
+            
+            // 清理 sessionStorage
+            Object.keys(sessionStorage).forEach(key => {
+                if (key.includes('auth') || key.includes('user') || key.includes('login')) {
+                    sessionStorage.removeItem(key);
+                    clearedCount++;
+                }
+            });
+            
+            showStatus(`已清理 ${clearedCount} 个认证相关数据项`);
+            checkStorage();
+        }
+
+        function clearAllStorage() {
+            if (confirm('确定要清理所有浏览器存储数据吗？这将清除所有本地设置。')) {
+                localStorage.clear();
+                sessionStorage.clear();
+                showStatus('所有浏览器存储数据已清理');
+                checkStorage();
+            }
+        }
+
+        function checkStorage() {
+            const info = document.getElementById('storage-info');
+            const authKeys = [
+                'auth_token',
+                'user_role', 
+                'user_email',
+                'login_time',
+                'demo_user'
+            ];
+            
+            let html = '';
+            authKeys.forEach(key => {
+                const value = localStorage.getItem(key);
+                const status = value ? '✅' : '❌';
+                html += `${status} ${key}: ${value || '未设置'}<br>`;
+            });
+            
+            html += `<br>localStorage总计: ${Object.keys(localStorage).length} 项<br>`;
+            html += `sessionStorage总计: ${Object.keys(sessionStorage).length} 项`;
+            
+            info.innerHTML = html;
+        }
+
+        function goToLogin() {
+            const currentDomain = window.location.origin;
+            window.location.href = currentDomain + '/login';
+        }
+
+        // 页面加载时检查存储状态
+        document.addEventListener('DOMContentLoaded', () => {
+            checkStorage();
+        });
+    </script>
+</body>
+</html>

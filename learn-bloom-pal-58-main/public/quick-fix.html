@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>快速修复 - 直接跳转学员面板</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .success {
+            background: #28a745;
+        }
+        .success:hover {
+            background: #1e7e34;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+        .status.show {
+            display: block;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 快速修复工具</h1>
+        
+        <div class="info">
+            <strong>紧急修复方案：</strong><br>
+            如果期次选择页面一直转圈，使用此工具直接跳转到学员面板。
+        </div>
+        
+        <div class="actions">
+            <button onclick="skipToStudentDashboard()" class="success">跳过期次选择，直接进入学员面板</button>
+            <button onclick="testSessionAPI()">测试期次API</button>
+            <button onclick="resetAndRetry()">重置状态并重试</button>
+        </div>
+        
+        <div id="status" class="status"></div>
+        
+        <div class="info">
+            <strong>使用说明：</strong><br>
+            1. 点击"跳过期次选择"直接进入学员面板<br>
+            2. 点击"测试期次API"检查API是否正常<br>
+            3. 如有问题，点击"重置状态并重试"
+        </div>
+        
+        <div id="api-result" class="info" style="display: none;">
+            <strong>API测试结果：</strong>
+            <pre id="api-data"></pre>
+        </div>
+    </div>
+
+    <script>
+        function showStatus(message, type = 'success') {
+            const status = document.getElementById('status');
+            status.className = `status show ${type}`;
+            status.textContent = message;
+            setTimeout(() => {
+                status.classList.remove('show');
+            }, 3000);
+        }
+
+        function skipToStudentDashboard() {
+            // 设置一个默认的期次ID，避免期次选择步骤
+            localStorage.setItem('selectedSessionId', 'default-session-id');
+            
+            showStatus('正在跳转到学员面板...', 'success');
+            
+            // 直接跳转到学员面板
+            setTimeout(() => {
+                window.location.href = '/student/dashboard';
+            }, 1000);
+        }
+
+        async function testSessionAPI() {
+            try {
+                showStatus('正在测试API...', 'success');
+                
+                const response = await fetch('http://localhost:3000/api/training-sessions');
+                const data = await response.json();
+                
+                const resultDiv = document.getElementById('api-result');
+                const dataDiv = document.getElementById('api-data');
+                
+                if (response.ok) {
+                    dataDiv.textContent = JSON.stringify(data, null, 2);
+                    resultDiv.style.display = 'block';
+                    showStatus(`API正常，获取到${data.length}个期次`, 'success');
+                } else {
+                    dataDiv.textContent = `Error: ${response.status} - ${response.statusText}`;
+                    resultDiv.style.display = 'block';
+                    showStatus('API调用失败', 'error');
+                }
+            } catch (error) {
+                const resultDiv = document.getElementById('api-result');
+                const dataDiv = document.getElementById('api-data');
+                
+                dataDiv.textContent = `Network Error: ${error.message}`;
+                resultDiv.style.display = 'block';
+                showStatus('网络错误', 'error');
+            }
+        }
+
+        function resetAndRetry() {
+            // 清除期次相关的localStorage
+            localStorage.removeItem('selectedSessionId');
+            
+            showStatus('状态已重置，正在重新加载...', 'success');
+            
+            // 重新加载期次选择页面
+            setTimeout(() => {
+                window.location.href = '/student/session-selection';
+            }, 1000);
+        }
+    </script>
+</body>
+</html>

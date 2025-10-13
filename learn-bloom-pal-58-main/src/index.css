@@ -1,0 +1,271 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* 全新色彩体系 - 能量黄主题 */
+    --primary: 45 100% 58%; /* #FFD166 能量橙黄 */
+    --primary-hover: 42 100% 52%; /* 悬浮状态稍深 */
+    --primary-foreground: 25 45% 20%; /* 深棕色文字 */
+    
+    /* 琥珀金变体 */
+    --accent: 48 100% 50%; /* #FFC700 标准金 */
+    --accent-foreground: 25 45% 20%;
+    
+    /* 温暖背景系统 */
+    --background: 46 43% 97%; /* #FDFBF5 带暖黄调的米色 */
+    --surface: 46 30% 95%; /* 次级背景 */
+    --card: 46 25% 98%; /* 卡片背景 */
+    --card-hover: 46 35% 96%; /* 卡片悬浮 */
+    
+    /* 文字色彩层级 */
+    --foreground: 0 0% 20%; /* #333333 深炭灰 */
+    --muted-foreground: 0 0% 45%; /* 次要文字 */
+    --subtle-foreground: 0 0% 65%; /* 最次要文字 */
+    
+    /* 功能色彩 */
+    --secondary: 208 25% 45%; /* #5A7D9A 灰蓝色 */
+    --secondary-foreground: 46 43% 97%;
+    
+    /* 边框和分割线 */
+    --border: 46 25% 88%; /* 温暖的浅灰边框 */
+    --input: 46 25% 92%;
+    --ring: 45 100% 58%; /* 聚焦环使用主色 */
+    
+    /* 状态色彩 */
+    --success: 142 76% 36%;
+    --success-foreground: 355 7% 97%;
+    --warning: 32 95% 44%;
+    --warning-foreground: 355 7% 97%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 355 7% 97%;
+    
+    /* Muted 系统 */
+    --muted: 46 25% 94%;
+    --muted-foreground: 0 0% 45%;
+    
+    /* Popover */
+    --popover: 46 25% 98%;
+    --popover-foreground: 0 0% 20%;
+    
+    /* 高级阴影系统 */
+    --shadow-soft: 0 4px 20px -2px rgba(255, 193, 0, 0.1);
+    --shadow-medium: 0 8px 30px -4px rgba(255, 193, 0, 0.15);
+    --shadow-strong: 0 16px 40px -8px rgba(255, 193, 0, 0.2);
+    
+    /* 渐变系统 */
+    --gradient-primary: linear-gradient(135deg, hsl(45, 100%, 58%), hsl(42, 100%, 52%));
+    --gradient-subtle: linear-gradient(180deg, hsl(46, 43%, 97%), hsl(46, 30%, 95%));
+    --gradient-card: linear-gradient(145deg, hsl(46, 25%, 98%), hsl(46, 20%, 96%));
+
+    /* Sidebar */
+    --sidebar-background: 46 25% 98%;
+    --sidebar-foreground: 0 0% 20%;
+    --sidebar-primary: 45 100% 58%;
+    --sidebar-primary-foreground: 25 45% 20%;
+    --sidebar-accent: 46 25% 94%;
+    --sidebar-accent-foreground: 0 0% 20%;
+    --sidebar-border: 46 25% 88%;
+    --sidebar-ring: 45 100% 58%;
+    
+    /* Apple Radius System */
+    --radius-xs: 4px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    --radius-2xl: 24px;
+  }
+
+  .dark {
+    --primary: 45 100% 65%;
+    --primary-hover: 42 100% 60%;
+    --primary-foreground: 0 0% 10%;
+    
+    --background: 0 0% 8%;
+    --surface: 0 0% 10%;
+    --card: 0 0% 12%;
+    --card-hover: 0 0% 15%;
+    
+    --foreground: 0 0% 95%;
+    --muted-foreground: 0 0% 65%;
+    --subtle-foreground: 0 0% 45%;
+    
+    --secondary: 208 25% 55%;
+    --secondary-foreground: 0 0% 10%;
+    
+    --border: 0 0% 20%;
+    --input: 0 0% 18%;
+    --ring: 45 100% 65%;
+    
+    --muted: 0 0% 15%;
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 95%;
+
+    --sidebar-background: 0 0% 10%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 45 100% 65%;
+    --sidebar-primary-foreground: 0 0% 10%;
+    --sidebar-accent: 0 0% 15%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 0 0% 20%;
+    --sidebar-ring: 45 100% 65%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* Apple-style Cards */
+  .card-elevated {
+    @apply bg-card border border-border/50;
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-soft);
+    backdrop-filter: blur(20px);
+    transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+  
+  .card-elevated:hover {
+    @apply bg-card-hover;
+    box-shadow: var(--shadow-medium);
+    transform: translateY(-1px) scale(1.005);
+  }
+  
+  /* 高级按钮样式 */
+  .btn-primary-gradient {
+    background: var(--gradient-primary);
+    @apply text-primary-foreground font-medium rounded-xl px-6 py-3;
+    box-shadow: var(--shadow-soft);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .btn-primary-gradient:hover {
+    box-shadow: var(--shadow-medium);
+    transform: translateY(-1px) scale(1.02);
+  }
+  
+  /* 进度条样式 */
+  .progress-enhanced {
+    @apply h-3 bg-muted rounded-full overflow-hidden relative;
+  }
+  
+  .progress-enhanced::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: var(--gradient-primary);
+    border-radius: inherit;
+    box-shadow: 0 0 12px rgba(255, 193, 0, 0.4);
+  }
+  
+  /* 标签样式 */
+  .tag-primary {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium;
+    background: linear-gradient(135deg, hsl(45, 100%, 92%), hsl(45, 100%, 88%));
+    color: hsl(var(--primary-foreground));
+    border: 1px solid hsl(45, 100%, 85%);
+  }
+  
+  /* 图标容器 */
+  .icon-enhanced {
+    @apply w-10 h-10 rounded-xl flex items-center justify-center;
+    background: linear-gradient(135deg, hsl(45, 100%, 95%), hsl(45, 100%, 90%));
+    border: 1px solid hsl(45, 100%, 85%);
+  }
+  
+  /* 输入框增强 */
+  .input-enhanced {
+    @apply bg-input border-border/60 rounded-xl px-4 py-3 text-foreground;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+    transition: all 0.2s ease;
+  }
+  
+  .input-enhanced:focus {
+    @apply border-primary ring-2 ring-primary/20;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06), 0 0 0 3px rgba(255, 193, 0, 0.1);
+  }
+  
+  /* 分割线 */
+  .divider-subtle {
+    @apply border-border/30;
+  }
+  
+  /* 文字层级 */
+  .text-primary-gradient {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  /* 页面容器增强 */
+  .page-container {
+    background: var(--gradient-subtle);
+    min-height: 100vh;
+  }
+  
+  /* 侧边栏增强 */
+  .sidebar-enhanced {
+    background: linear-gradient(180deg, hsl(46, 25%, 98%), hsl(46, 20%, 96%));
+    border-right: 1px solid hsl(var(--border));
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.06);
+  }
+}
+
+@layer components {
+  /* 数据卡片 */
+  .stat-card {
+    @apply card-elevated p-6 text-center;
+  }
+  
+  .stat-value {
+    @apply text-3xl font-bold text-primary mb-2;
+  }
+  
+  .stat-label {
+    @apply text-sm text-muted-foreground;
+  }
+  
+  /* 表格增强 */
+  .table-enhanced {
+    @apply bg-card rounded-2xl overflow-hidden;
+    box-shadow: var(--shadow-soft);
+  }
+  
+  .table-enhanced th {
+    @apply bg-muted/50 text-muted-foreground font-medium px-6 py-4;
+  }
+  
+  .table-enhanced td {
+    @apply px-6 py-4 border-t border-border/30;
+  }
+  
+  /* 对话框增强 */
+  .dialog-enhanced {
+    @apply rounded-2xl bg-popover p-0 overflow-hidden;
+    box-shadow: var(--shadow-strong);
+  }
+  
+  /* 导航增强 */
+  .nav-item {
+    @apply flex items-center px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200;
+  }
+  
+  .nav-item.active {
+    @apply bg-primary/10 text-primary font-medium;
+    box-shadow: inset 0 1px 0 rgba(255, 193, 0, 0.2);
+  }
+}

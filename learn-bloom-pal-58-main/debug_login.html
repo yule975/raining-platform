@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>调试登录 - 培训平台</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .status {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #1976D2;
+        }
+        .success {
+            background: #c8e6c9;
+            color: #2e7d32;
+        }
+        .error {
+            background: #ffcdd2;
+            color: #c62828;
+        }
+        .info {
+            background: #e1f5fe;
+            color: #0277bd;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 培训平台调试工具</h1>
+        
+        <div class="status" id="status">
+            <h3>当前状态检查</h3>
+            <div id="statusInfo">正在检查...</div>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <button onclick="setAdminLogin()">🔑 设置管理员登录</button>
+            <button onclick="setStudentLogin()">👨‍🎓 设置学生登录</button>
+            <button onclick="clearLogin()">🚪 清除登录</button>
+            <button onclick="checkStatus()">🔍 检查状态</button>
+            <button onclick="openMainSite()">🌐 打开主站</button>
+        </div>
+
+        <div class="status">
+            <h3>操作日志</h3>
+            <pre id="logs">等待操作...</pre>
+        </div>
+    </div>
+
+    <script>
+        function log(message) {
+            const logs = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            logs.textContent += `[${timestamp}] ${message}\n`;
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        function setAdminLogin() {
+            localStorage.clear();
+            localStorage.setItem('user_role', 'admin');
+            localStorage.setItem('user_id', 'admin-test-001');
+            localStorage.setItem('user_email', 'admin@test.com');
+            localStorage.setItem('user_name', '测试管理员');
+            
+            log('✅ 已设置管理员登录状态');
+            checkStatus();
+        }
+
+        function setStudentLogin() {
+            localStorage.clear();
+            localStorage.setItem('user_role', 'student');
+            localStorage.setItem('user_id', 'student-test-001');
+            localStorage.setItem('user_email', 'student@test.com');
+            localStorage.setItem('user_name', '测试学生');
+            
+            log('✅ 已设置学生登录状态');
+            checkStatus();
+        }
+
+        function clearLogin() {
+            localStorage.clear();
+            log('🚪 已清除所有登录信息');
+            checkStatus();
+        }
+
+        function checkStatus() {
+            const statusInfo = document.getElementById('statusInfo');
+            const role = localStorage.getItem('user_role');
+            const userId = localStorage.getItem('user_id');
+            const email = localStorage.getItem('user_email');
+            const name = localStorage.getItem('user_name');
+
+            let html = '';
+            if (role) {
+                html = `
+                    <div class="success">
+                        <strong>✅ 已登录</strong><br>
+                        角色: ${role}<br>
+                        用户ID: ${userId}<br>
+                        邮箱: ${email}<br>
+                        姓名: ${name}
+                    </div>
+                `;
+                log(`📊 当前登录状态: ${role} - ${name}`);
+            } else {
+                html = '<div class="error"><strong>❌ 未登录</strong></div>';
+                log('📊 当前状态: 未登录');
+            }
+
+            statusInfo.innerHTML = html;
+        }
+
+        function openMainSite() {
+            const url = 'http://localhost:3002';
+            window.open(url, '_blank');
+            log(`🌐 已打开主站: ${url}`);
+        }
+
+        // 页面加载时检查状态
+        window.onload = function() {
+            log('🚀 调试工具已启动');
+            checkStatus();
+        };
+    </script>
+</body>
+</html>

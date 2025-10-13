@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard重启工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 16px;
+            width: 100%;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .success {
+            background: #28a745;
+        }
+        .success:hover {
+            background: #1e7e34;
+        }
+        .warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        .warning:hover {
+            background: #e0a800;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+        .status.show {
+            display: block;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 Dashboard重启工具</h1>
+        
+        <div class="info">
+            <strong>当前状态:</strong><br>
+            如果Dashboard一直显示"加载中..."，使用此工具重新启动。
+        </div>
+        
+        <div class="actions">
+            <button onclick="checkStatus()" class="warning">检查当前状态</button>
+            <button onclick="restartDashboard()" class="success">重新启动Dashboard</button>
+            <button onclick="clearAllAndRestart()">清除所有数据并重启</button>
+            <button onclick="goToSessionSelection()">返回期次选择</button>
+        </div>
+        
+        <div id="status" class="status"></div>
+        
+        <div id="log" class="log" style="display: none;">
+            <div id="log-content"></div>
+        </div>
+        
+        <div class="info">
+            <strong>步骤说明：</strong><br>
+            1. 先点击"检查当前状态"查看问题<br>
+            2. 点击"重新启动Dashboard"尝试修复<br>
+            3. 如果还有问题，点击"清除所有数据并重启"<br>
+            4. 最后选择"返回期次选择"重新开始
+        </div>
+    </div>
+
+    <script>
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const logContent = document.getElementById('log-content');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            logContent.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.style.display = 'block';
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function showStatus(message, type = 'success') {
+            const status = document.getElementById('status');
+            status.className = `status show ${type}`;
+            status.textContent = message;
+            setTimeout(() => {
+                status.classList.remove('show');
+            }, 3000);
+        }
+
+        function checkStatus() {
+            log('=== 检查当前状态 ===');
+            
+            // 检查localStorage
+            const authToken = localStorage.getItem('auth_token');
+            const userRole = localStorage.getItem('user_role');
+            const userEmail = localStorage.getItem('user_email');
+            const selectedSessionId = localStorage.getItem('selectedSessionId');
+            const demoUser = localStorage.getItem('demo_user');
+            
+            log(`auth_token: ${authToken ? '存在' : '不存在'}`);
+            log(`user_role: ${userRole || '未设置'}`);
+            log(`user_email: ${userEmail || '未设置'}`);
+            log(`selectedSessionId: ${selectedSessionId || '未设置'}`);
+            log(`demo_user: ${demoUser ? '存在' : '不存在'}`);
+            
+            // 检查当前URL
+            log(`当前URL: ${window.location.href}`);
+            
+            // 检查是否有错误
+            if (!authToken && !demoUser) {
+                log('❌ 问题：缺少认证信息');
+                showStatus('发现问题：缺少认证信息', 'error');
+            } else if (!selectedSessionId || selectedSessionId === 'default-session-id') {
+                log('⚠️ 问题：期次选择可能有问题');
+                showStatus('发现问题：期次选择异常', 'warning');
+            } else {
+                log('✅ 基本状态正常');
+                showStatus('基本状态检查通过', 'success');
+            }
+        }
+
+        function restartDashboard() {
+            log('=== 重新启动Dashboard ===');
+            
+            // 确保有基本的认证状态
+            if (!localStorage.getItem('auth_token') && !localStorage.getItem('demo_user')) {
+                log('设置基本认证状态...');
+                localStorage.setItem('auth_token', 'student_auth_token');
+                localStorage.setItem('user_role', 'student');
+                localStorage.setItem('user_email', 'student@test.com');
+                localStorage.setItem('login_time', new Date().toISOString());
+            }
+            
+            // 确保有期次选择
+            if (!localStorage.getItem('selectedSessionId') || localStorage.getItem('selectedSessionId') === 'default-session-id') {
+                log('设置默认期次...');
+                localStorage.setItem('selectedSessionId', '3aec32c0-11f9-4dd4-935e-67b3b8b20974'); // 使用API返回的真实期次ID
+            }
+            
+            log('触发页面重新加载...');
+            showStatus('正在重启Dashboard...', 'success');
+            
+            setTimeout(() => {
+                window.location.href = '/student/dashboard';
+            }, 1000);
+        }
+
+        function clearAllAndRestart() {
+            log('=== 清除所有数据并重启 ===');
+            
+            // 清除所有localStorage
+            localStorage.clear();
+            sessionStorage.clear();
+            log('已清除所有存储数据');
+            
+            // 重新设置基本状态
+            log('重新设置认证状态...');
+            localStorage.setItem('auth_token', 'student_auth_token');
+            localStorage.setItem('user_role', 'student');
+            localStorage.setItem('user_email', 'student@test.com');
+            localStorage.setItem('login_time', new Date().toISOString());
+            localStorage.setItem('selectedSessionId', '3aec32c0-11f9-4dd4-935e-67b3b8b20974');
+            
+            showStatus('正在全面重启...', 'success');
+            
+            setTimeout(() => {
+                window.location.href = '/student/dashboard';
+            }, 1500);
+        }
+
+        function goToSessionSelection() {
+            log('=== 返回期次选择 ===');
+            
+            // 清除期次相关设置
+            localStorage.removeItem('selectedSessionId');
+            log('已清除期次选择');
+            
+            showStatus('正在跳转到期次选择...', 'success');
+            
+            setTimeout(() => {
+                window.location.href = '/student/session-selection';
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
