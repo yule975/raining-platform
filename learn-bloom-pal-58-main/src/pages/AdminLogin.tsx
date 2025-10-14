@@ -84,11 +84,11 @@ export default function AdminLogin() {
       
       console.log('AdminLogin: Supabase登录成功，用户:', data.user.email);
       
-      // 验证是否为管理员
+      // 验证是否为管理员（使用不区分大小写的查询）
       const { data: authUser, error: authError } = await supabase
         .from('authorized_users')
         .select('role')
-        .eq('email', data.user.email)
+        .ilike('email', data.user.email!)
         .single();
       
       if (authError || !authUser || authUser.role !== 'admin') {
