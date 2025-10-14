@@ -24,7 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Search, Eye, CheckCircle, XCircle, Users, Video, FileCheck, Award, Download } from 'lucide-react';
+import { Search, Eye, CheckCircle, XCircle, Users, Video, FileCheck, Award, Download, RefreshCw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
@@ -112,6 +112,7 @@ export default function StudentProgressManagement() {
   const loadCourseProgress = async () => {
     if (!selectedSessionId) return;
     
+    console.log('📊 开始加载课程进度数据...', { selectedSessionId });
     setIsLoading(true);
     try {
       // 1. 获取该期次的所有课程
@@ -121,6 +122,7 @@ export default function StudentProgressManagement() {
         .eq('session_id', selectedSessionId)
         .eq('is_active', true);
 
+      console.log('📚 获取到的课程:', sessionCourses);
       if (coursesError) throw coursesError;
 
       // 2. 获取该期次的所有学生
@@ -132,6 +134,7 @@ export default function StudentProgressManagement() {
         `)
         .eq('session_id', selectedSessionId);
 
+      console.log('👥 获取到的学生:', sessionStudents);
       if (studentsError) throw studentsError;
 
       // 3. 获取所有学生的授权信息（从authorized_users表）
@@ -155,6 +158,7 @@ export default function StudentProgressManagement() {
         .select('*')
         .eq('session_id', selectedSessionId);
 
+      console.log('📈 获取到的进度记录:', progressRecords);
       if (progressError) throw progressError;
 
       // 5. 处理数据，按课程汇总
@@ -303,14 +307,25 @@ export default function StudentProgressManagement() {
       {/* 标题 */}
       <div className="flex justify-between items-center">
         <h2 className="text-3xl font-bold">学习进度</h2>
-        <Button 
-          onClick={exportToExcel}
-          disabled={courseProgressList.length === 0}
-          className="flex items-center gap-2"
-        >
-          <Download className="w-4 h-4" />
-          导出Excel
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            onClick={() => loadCourseProgress()}
+            disabled={isLoading || !selectedSessionId}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            刷新数据
+          </Button>
+          <Button 
+            onClick={exportToExcel}
+            disabled={courseProgressList.length === 0}
+            className="flex items-center gap-2"
+          >
+            <Download className="w-4 h-4" />
+            导出Excel
+          </Button>
+        </div>
       </div>
 
       {/* 筛选栏 */}

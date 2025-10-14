@@ -384,19 +384,29 @@ const CourseDetail = () => {
 
   // 手动确认"我已看完视频"
   const handleMarkVideoWatched = async () => {
+    console.log('🎬 点击"我已看完视频"按钮', { courseId: courseData?.id, userId });
+    
     if (!courseData?.id || !userId) {
+      console.error('❌ 缺少必要参数', { courseId: courseData?.id, userId });
       toast.error('请先登录');
       return;
     }
+    
     try {
+      console.log('📤 发送请求标记视频完成...', { courseId: courseData.id, userId });
       const ok = await ApiService.markVideoCompleted(courseData.id, userId);
+      console.log('📥 收到响应', { ok });
+      
       if (ok) {
         setIsVideoWatched(true);
         toast.success('已记录视频观看');
+        console.log('✅ 视频观看记录成功');
       } else {
         toast.error('记录失败，请稍后重试');
+        console.error('❌ 记录失败：API返回false');
       }
-    } catch {
+    } catch (error) {
+      console.error('❌ 记录失败：异常', error);
       toast.error('记录失败，请稍后重试');
     }
   };

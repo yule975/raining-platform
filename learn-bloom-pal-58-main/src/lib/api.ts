@@ -2334,14 +2334,25 @@ export class ApiService {
   static async markVideoCompleted(courseId: string, userId: string): Promise<boolean> {
     try {
       const base = getApiBaseUrl();
-      const res = await fetch(`${base}/api/courses/${courseId}/video-completed`, {
+      const url = `${base}/api/courses/${courseId}/video-completed`;
+      console.log('🌐 ApiService.markVideoCompleted 请求:', { url, courseId, userId });
+      
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ studentId: userId })
       })
+      
+      console.log('🌐 ApiService.markVideoCompleted 响应:', { status: res.status, ok: res.ok });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('🌐 ApiService.markVideoCompleted 错误:', errorText);
+      }
+      
       return res.ok
     } catch (error) {
-      console.error('Error marking video completed:', error)
+      console.error('🌐 ApiService.markVideoCompleted 异常:', error)
       return false
     }
   }
