@@ -1039,7 +1039,7 @@ app.post('/api/courses/:courseId/video-completed', async (req, res) => {
     const now = new Date().toISOString()
     
     // 先查询是否存在记录
-    const { data: existing } = await supabase
+    const { data: existing, error: existingError } = await supabase
       .from('course_completions')
       .select('*')
       .eq('session_id', currentSession.id)
@@ -1048,6 +1048,7 @@ app.post('/api/courses/:courseId/video-completed', async (req, res) => {
       .single()
     
     let error
+    let debugInfo = { existing, existingError: existingError || null, mode: '', updateResult: null, insertResult: null }
     if (existing) {
       // 更新现有记录
       console.log('✏️ 更新现有记录:', existing.id)
@@ -1061,6 +1062,8 @@ app.post('/api/courses/:courseId/video-completed', async (req, res) => {
         .eq('id', existing.id)
       error = result.error
       console.log('✅ 更新结果:', { error })
+      debugInfo.mode = 'update'
+      debugInfo.updateResult = { error: result.error || null, data: result.data || null, status: result.status || null }
     } else {
       // 插入新记录
       const insertData = {
@@ -1080,17 +1083,27 @@ app.post('/api/courses/:courseId/video-completed', async (req, res) => {
         .insert(insertData)
       error = result.error
       console.log('✅ 插入结果:', { data: result.data, error })
+      debugInfo.mode = 'insert'
+      debugInfo.insertResult = { error: result.error || null, data: result.data || null, status: result.status || null }
     }
     
     if (error) {
       console.error('❌ 保存失败:', error)
+      // 当带上 debug=1 时，把详细错误返回给客户端，方便排查
+      if (req.query.debug === '1') {
+        return res.status(500).json({ success: false, message: '保存失败', error, debug: debugInfo })
+      }
       throw error
     }
     console.log('🎉 视频完成标记成功!')
+    // 调试时返回更多信息
+    if (req.query.debug === '1') {
+      return res.json({ success: true, debug: debugInfo, currentSession })
+    }
     res.json({ success: true })
   } catch (e) {
     console.error('mark video completed error:', e)
-    res.status(500).json({ error: 'Failed to mark video completed' })
+    res.status(500).json({ error: 'Failed to mark video completed', detail: String(e?.message || e) })
   }
 })
 
@@ -1332,6 +1345,25 @@ app.get('/api/debug/progress', async (req, res) => {
   } catch (e) {
     console.error('诊断失败:', e)
     res.status(500).json({ error: '诊断失败', details: e.message })
+  }
+})
+
+// 简单环境自检（不会泄露密钥）
+app.get('/api/debug/env', (req, res) => {
+  try {
+    const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY)
+    const supabaseUrlHost = (() => {
+      try { return new URL(process.env.SUPABASE_URL || '').host } catch { return '' }
+    })()
+    res.json({
+      ok: true,
+      env: {
+        hasServiceRoleKey,
+        supabaseUrlHost
+      }
+    })
+  } catch (e) {
+    res.status(500).json({ ok: false })
   }
 })
 
