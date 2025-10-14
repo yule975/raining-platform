@@ -57,27 +57,62 @@ export default function AdminLogin() {
     try {
       console.log('AdminLogin: 开始登录流程...');
       
-      // 简单的邮箱密码验证
-      if (formData.email === 'xiewenxuan001@51Talk.com' && formData.password === 'Admin123456!') {
-        console.log('AdminLogin: 邮箱密码验证通过');
-        
-        // 设置登录状态
-        localStorage.setItem('auth_token', 'simple_admin_token');
-        localStorage.setItem('user_role', 'admin');
-        localStorage.setItem('user_email', formData.email);
-        localStorage.setItem('login_time', new Date().toISOString());
-        
-        toast.success('登录成功！正在跳转到管理员面板...');
-        
-        // 使用React Router导航
-        setTimeout(() => {
-          navigate('/admin', { replace: true });
-        }, 1000);
-        
-      } else {
-        setErrors(prev => ({ ...prev, submit: '邮箱或密码错误' }));
+      // 先清除任何现有的session
+      console.log('AdminLogin: 清除现有session...');
+      await supabase.auth.signOut();
+      
+      // 通过Supabase进行真正的登录
+      console.log('AdminLogin: 尝试Supabase登录...');
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password
+      });
+      
+      if (error) {
+        console.error('AdminLogin: Supabase登录失败:', error);
+        setErrors(prev => ({ ...prev, submit: error.message || '邮箱或密码错误' }));
         toast.error('邮箱或密码错误');
+        return;
       }
+      
+      if (!data.user) {
+        console.error('AdminLogin: 登录成功但无用户数据');
+        setErrors(prev => ({ ...prev, submit: '登录失败，请重试' }));
+        toast.error('登录失败，请重试');
+        return;
+      }
+      
+      console.log('AdminLogin: Supabase登录成功，用户:', data.user.email);
+      
+      // 验证是否为管理员
+      const { data: authUser, error: authError } = await supabase
+        .from('authorized_users')
+        .select('role')
+        .eq('email', data.user.email)
+        .single();
+      
+      if (authError || !authUser || authUser.role !== 'admin') {
+        console.error('AdminLogin: 非管理员账号');
+        await supabase.auth.signOut();
+        setErrors(prev => ({ ...prev, submit: '此账号无管理员权限' }));
+        toast.error('此账号无管理员权限');
+        return;
+      }
+      
+      console.log('AdminLogin: 管理员身份验证通过');
+      
+      // 设置登录状态
+      localStorage.setItem('auth_token', data.session?.access_token || 'admin_token');
+      localStorage.setItem('user_role', 'admin');
+      localStorage.setItem('user_email', data.user.email!);
+      localStorage.setItem('login_time', new Date().toISOString());
+      
+      toast.success('登录成功！正在跳转到管理员面板...');
+      
+      // 使用React Router导航
+      setTimeout(() => {
+        navigate('/admin', { replace: true });
+      }, 1000);
 
     } catch (error: any) {
       console.error('AdminLogin: 登录异常:', error);
