@@ -17,18 +17,129 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', ts: new Date().toISOString() })
 })
 
-// Training sessions (minimal)
-app.get('/api/training-sessions', async (req, res) => {
+// ========== 课程管理相关路由 ==========
+app.get('/api/courses', async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from('training_sessions')
+      .from('courses')
       .select('*')
       .order('created_at', { ascending: false })
     if (error) throw error
     res.json(data || [])
   } catch (e) {
+    console.error('courses error:', e)
+    res.status(500).json({ error: 'Failed to fetch courses' })
+  }
+})
+
+app.post('/api/courses', async (req, res) => {
+  try {
+    const { title, description, cover_url, video_url, duration, instructor } = req.body
+    const { data: courseData, error: courseError } = await supabase
+      .from('courses')
+      .insert({ title, description, cover_url, video_url, duration, instructor })
+      .select()
+      .single()
+    if (courseError) throw courseError
+    
+    // 自动关联到当前期次
+    try {
+      const { data: currentSession } = await supabase
+        .from('training_sessions')
+        .select('id, name')
+        .eq('is_current', true)
+        .eq('status', 'active')
+        .single()
+      if (currentSession) {
+        await supabase.from('session_courses').insert({
+          session_id: currentSession.id,
+          course_id: courseData.id,
+          is_active: true,
+          added_at: new Date().toISOString()
+        })
+      }
+    } catch (autoLinkError) {
+      console.warn('自动关联期次失败:', autoLinkError)
+    }
+    
+    res.status(201).json(courseData)
+  } catch (e) {
+    console.error('create course error:', e)
+    res.status(500).json({ error: 'Failed to create course' })
+  }
+})
+
+// Training sessions
+app.get('/api/training-sessions', async (req, res) => {
+  try {
+    const { data: sessions, error } = await supabase
+      .from('training_sessions')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (error) throw error
+    
+    // 为每个期次计算学员数量
+    const sessionsWithCount = await Promise.all((sessions || []).map(async (session) => {
+      try {
+        const { count } = await supabase
+          .from('session_students')
+          .select('*', { count: 'exact' })
+          .eq('session_id', session.id)
+        return { ...session, student_count: count || 0 }
+      } catch (err) {
+        return { ...session, student_count: 0 }
+      }
+    }))
+    
+    res.json(sessionsWithCount)
+  } catch (e) {
     console.error('training-sessions error:', e)
     res.status(500).json({ error: 'Failed to fetch training sessions' })
+  }
+})
+
+app.get('/api/training-sessions/current', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('training_sessions')
+      .select('*')
+      .eq('is_current', true)
+      .eq('status', 'active')
+      .single()
+    if (error) {
+      if (error.code === 'PGRST116') return res.json(null)
+      throw error
+    }
+    res.json(data)
+  } catch (e) {
+    console.error('current session error:', e)
+    res.status(500).json({ error: 'Failed to fetch current session' })
+  }
+})
+
+app.get('/api/training-sessions/:id/courses', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { data: relations, error: relErr } = await supabase
+      .from('session_courses')
+      .select('course_id')
+      .eq('session_id', id)
+    if (relErr) throw relErr
+    
+    const courseIds = (relations || []).map(r => r.course_id)
+    if (courseIds.length === 0) return res.json([])
+    
+    const { data: courses, error: courseErr } = await supabase
+      .from('courses')
+      .select('*')
+      .in('id', courseIds)
+      .order('created_at', { ascending: false })
+    if (courseErr) throw courseErr
+    
+    res.json(courses || [])
+  } catch (e) {
+    console.error('session courses error:', e)
+    res.status(500).json({ error: 'Failed to fetch session courses' })
   }
 })
 
