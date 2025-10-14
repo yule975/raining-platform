@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { ApiService, TrainingSession } from '@/lib/api';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 
 interface SessionContextType {
   currentSession: TrainingSession | null;
@@ -40,12 +41,46 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({ children }) =>
       setLoading(true);
       setError(null);
 
-      // 获取所有可用期次
-      console.log('SessionContext: 获取所有期次...');
-      const sessions = await ApiService.getTrainingSessions();
-      const activeSessions = sessions.filter(session => 
-        session.status === 'active' || session.status === 'upcoming'
-      );
+      // 获取当前学员ID
+      let userId = null;
+      const userProfile = localStorage.getItem('user_profile');
+      if (userProfile) {
+        const parsed = JSON.parse(userProfile);
+        userId = parsed?.id;
+      }
+
+      let activeSessions: TrainingSession[] = [];
+
+      if (userId) {
+        // 学员：只获取被分配的期次
+        console.log('SessionContext: 获取学员被分配的期次...', userId);
+        const { data: studentSessions, error } = await supabase
+          .from('session_students')
+          .select(`
+            session_id,
+            training_sessions(*)
+          `)
+          .eq('user_id', userId)
+          .eq('status', 'active');
+
+        if (error) {
+          console.error('SessionContext: 查询学员期次失败', error);
+        } else {
+          console.log('SessionContext: 学员期次数据', studentSessions);
+          // 提取期次信息并过滤活跃状态
+          activeSessions = (studentSessions || [])
+            .map((ss: any) => ss.training_sessions)
+            .filter((session: any) => session && (session.status === 'active' || session.status === 'upcoming'));
+        }
+      } else {
+        // 没有用户ID时，获取所有活跃期次（兼容旧逻辑）
+        console.log('SessionContext: 未找到用户ID，获取所有期次...');
+        const sessions = await ApiService.getTrainingSessions();
+        activeSessions = sessions.filter(session => 
+          session.status === 'active' || session.status === 'upcoming'
+        );
+      }
+
       console.log('SessionContext: 活跃期次数量:', activeSessions.length);
       setAvailableSessions(activeSessions);
 

@@ -112,11 +112,15 @@ const StudentLayout = () => {
                           </div>
                         </DropdownMenuItem>
                       ))}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => navigate('/student/session-selection')}>
-                        <Calendar className="mr-2 h-4 w-4" />
-                        <span>查看所有期次</span>
-                      </DropdownMenuItem>
+                      {availableSessions.length > 1 && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => navigate('/student/session-selection')}>
+                            <Calendar className="mr-2 h-4 w-4" />
+                            <span>选择其他期次</span>
+                          </DropdownMenuItem>
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
