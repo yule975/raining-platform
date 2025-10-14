@@ -1016,6 +1016,8 @@ app.post('/api/courses/:courseId/video-completed', async (req, res) => {
     const { courseId } = req.params
     const { studentId } = req.body
     
+    console.log('📹 标记视频完成:', { courseId, studentId })
+    
     if (!studentId) {
       return res.status(400).json({ error: 'studentId is required' })
     }
@@ -1026,6 +1028,8 @@ app.post('/api/courses/:courseId/video-completed', async (req, res) => {
       .select('id')
       .eq('is_current', true)
       .single()
+    
+    console.log('📅 当前期次:', currentSession)
     
     if (!currentSession) {
       return res.status(400).json({ error: 'No current session found' })
@@ -1046,6 +1050,7 @@ app.post('/api/courses/:courseId/video-completed', async (req, res) => {
     let error
     if (existing) {
       // 更新现有记录
+      console.log('✏️ 更新现有记录:', existing.id)
       const result = await supabase
         .from('course_completions')
         .update({
@@ -1055,25 +1060,33 @@ app.post('/api/courses/:courseId/video-completed', async (req, res) => {
         })
         .eq('id', existing.id)
       error = result.error
+      console.log('✅ 更新结果:', { error })
     } else {
       // 插入新记录
+      const insertData = {
+        session_id: currentSession.id,
+        user_id: studentId,
+        course_id: courseId,
+        video_completed: true,
+        video_completed_at: now,
+        assignments_completed: false,
+        course_completed: false,
+        created_at: now,
+        updated_at: now
+      }
+      console.log('➕ 插入新记录:', insertData)
       const result = await supabase
         .from('course_completions')
-        .insert({
-          session_id: currentSession.id,
-          user_id: studentId,
-          course_id: courseId,
-          video_completed: true,
-          video_completed_at: now,
-          assignments_completed: false,
-          course_completed: false,
-          created_at: now,
-          updated_at: now
-        })
+        .insert(insertData)
       error = result.error
+      console.log('✅ 插入结果:', { data: result.data, error })
     }
     
-    if (error) throw error
+    if (error) {
+      console.error('❌ 保存失败:', error)
+      throw error
+    }
+    console.log('🎉 视频完成标记成功!')
     res.json({ success: true })
   } catch (e) {
     console.error('mark video completed error:', e)
