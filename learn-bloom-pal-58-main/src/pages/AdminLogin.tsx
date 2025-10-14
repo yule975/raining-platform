@@ -57,9 +57,13 @@ export default function AdminLogin() {
     try {
       console.log('AdminLogin: 开始登录流程...');
       
-      // 先清除任何现有的session
-      console.log('AdminLogin: 清除现有session...');
-      await supabase.auth.signOut();
+      // 只清除localStorage，不清除Supabase session（避免影响其他用户）
+      console.log('AdminLogin: 清除本地存储的认证信息...');
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user_role');
+      localStorage.removeItem('user_email');
+      localStorage.removeItem('user_profile');
+      localStorage.removeItem('force_student_role');
       
       // 通过Supabase进行真正的登录
       console.log('AdminLogin: 尝试Supabase登录...');
@@ -93,7 +97,8 @@ export default function AdminLogin() {
       
       if (authError || !authUser || authUser.role !== 'admin') {
         console.error('AdminLogin: 非管理员账号');
-        await supabase.auth.signOut();
+        // 不要signOut，因为这会清除所有session，包括学员的
+        // 只清除当前登录的token即可
         setErrors(prev => ({ ...prev, submit: '此账号无管理员权限' }));
         toast.error('此账号无管理员权限');
         return;

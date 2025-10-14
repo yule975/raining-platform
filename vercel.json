@@ -23,11 +23,25 @@
       "dest": "/api/index.js"
     },
     {
+      "src": "/assets/(.*)",
+      "dest": "/learn-bloom-pal-58-main/dist/assets/$1"
+    },
+    {
       "handle": "filesystem"
     },
     {
       "src": "/(.*)",
       "dest": "/learn-bloom-pal-58-main/dist/index.html"
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/:path*",
+      "destination": "/learn-bloom-pal-58-main/dist/index.html"
     }
   ]
 }
