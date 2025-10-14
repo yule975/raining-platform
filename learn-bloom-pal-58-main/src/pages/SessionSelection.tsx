@@ -7,6 +7,7 @@ import { Calendar, Users, Clock, CheckCircle, AlertCircle, BookOpen } from 'luci
 import { ApiService, TrainingSession } from '@/lib/api';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 const SessionSelection = () => {
   const navigate = useNavigate();
@@ -18,22 +19,67 @@ const SessionSelection = () => {
   useEffect(() => {
     const fetchSessions = async () => {
       try {
-        console.log('SessionSelection: 开始获取期次列表...');
-        const sessionsData = await ApiService.getTrainingSessions();
-        console.log('SessionSelection: 原始期次数据', sessionsData);
+        console.log('SessionSelection: 开始获取学员的期次列表...');
         
-        // 只显示活跃状态的期次
-        const activeSessions = sessionsData.filter(session => 
-          session.status === 'active' || session.status === 'upcoming'
-        );
-        console.log('SessionSelection: 过滤后的活跃期次', activeSessions);
+        // 获取当前学员ID
+        let userId = null;
+        const userProfile = localStorage.getItem('user_profile');
+        if (userProfile) {
+          const parsed = JSON.parse(userProfile);
+          userId = parsed?.id;
+        }
         
-        setSessions(activeSessions);
+        if (!userId) {
+          console.error('SessionSelection: 未找到学员ID');
+          toast.error('无法获取用户信息，请重新登录');
+          setLoading(false);
+          return;
+        }
         
-        // 如果只有一个期次，自动选中
-        if (activeSessions.length === 1) {
-          setSelectedSession(activeSessions[0].id);
-          console.log('SessionSelection: 自动选中唯一期次', activeSessions[0].name);
+        console.log('SessionSelection: 学员ID:', userId);
+        
+        // 获取学员被分配的期次
+        const { data: studentSessions, error } = await supabase
+          .from('session_students')
+          .select(`
+            session_id,
+            training_sessions(*)
+          `)
+          .eq('user_id', userId)
+          .eq('status', 'active');
+        
+        if (error) {
+          console.error('SessionSelection: 查询失败', error);
+          toast.error('获取期次信息失败');
+          setLoading(false);
+          return;
+        }
+        
+        console.log('SessionSelection: 学员的期次数据', studentSessions);
+        
+        // 提取期次信息并过滤活跃状态
+        const assignedSessions = (studentSessions || [])
+          .map((ss: any) => ss.training_sessions)
+          .filter((session: any) => session && (session.status === 'active' || session.status === 'upcoming'));
+        
+        console.log('SessionSelection: 过滤后的期次', assignedSessions);
+        
+        setSessions(assignedSessions);
+        
+        // 如果只有一个期次，自动选中并直接跳转
+        if (assignedSessions.length === 1) {
+          const sessionId = assignedSessions[0].id;
+          setSelectedSession(sessionId);
+          console.log('SessionSelection: 自动选中唯一期次', assignedSessions[0].name);
+          
+          // 自动保存并跳转
+          localStorage.setItem('selectedSessionId', sessionId);
+          setTimeout(() => {
+            navigate('/student/dashboard');
+            toast.success(`已进入 ${assignedSessions[0].name}`);
+          }, 500);
+        } else if (assignedSessions.length === 0) {
+          toast.error('您还未被分配到任何培训期次，请联系管理员');
         }
       } catch (error) {
         console.error('获取期次列表失败:', error);
@@ -44,7 +90,7 @@ const SessionSelection = () => {
     };
 
     fetchSessions();
-  }, []);
+  }, [navigate]);
 
   const handleSessionSelect = (sessionId: string) => {
     setSelectedSession(sessionId);
