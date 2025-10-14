@@ -114,8 +114,6 @@ export default function StudentProgressManagement() {
     
     setIsLoading(true);
     try {
-      console.log('开始加载课程进度，期次ID:', selectedSessionId);
-      
       // 1. 获取该期次的所有课程
       const { data: sessionCourses, error: coursesError } = await supabase
         .from('session_courses')
@@ -123,7 +121,6 @@ export default function StudentProgressManagement() {
         .eq('session_id', selectedSessionId)
         .eq('is_active', true);
 
-      console.log('课程查询结果:', { sessionCourses, coursesError });
       if (coursesError) throw coursesError;
 
       // 2. 获取该期次的所有学生
@@ -135,7 +132,6 @@ export default function StudentProgressManagement() {
         `)
         .eq('session_id', selectedSessionId);
 
-      console.log('学生查询结果:', { sessionStudents, studentsError });
       if (studentsError) throw studentsError;
 
       // 3. 获取所有学生的授权信息（从authorized_users表）
@@ -143,14 +139,10 @@ export default function StudentProgressManagement() {
         .map(s => s.profiles?.email)
         .filter(Boolean);
 
-      console.log('学生邮箱列表:', studentEmails);
-
-      const { data: authorizedUsers, error: authError } = await supabase
+      const { data: authorizedUsers } = await supabase
         .from('authorized_users')
         .select('email, name')
         .in('email', studentEmails);
-
-      console.log('授权用户查询结果:', { authorizedUsers, authError });
 
       // 创建email到name的映射
       const emailToNameMap = new Map(
@@ -163,7 +155,6 @@ export default function StudentProgressManagement() {
         .select('*')
         .eq('session_id', selectedSessionId);
 
-      console.log('进度记录查询结果:', { progressRecords, progressError });
       if (progressError) throw progressError;
 
       // 5. 处理数据，按课程汇总
