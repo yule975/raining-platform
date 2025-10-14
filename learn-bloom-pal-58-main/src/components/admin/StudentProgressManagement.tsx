@@ -159,10 +159,11 @@ export default function StudentProgressManagement() {
 
       // 4. 获取所有学习进度记录
       const { data: progressRecords, error: progressError } = await supabase
-        .from('user_course_completions')
+        .from('course_completions')
         .select('*')
         .eq('session_id', selectedSessionId);
 
+      console.log('进度记录查询结果:', { progressRecords, progressError });
       if (progressError) throw progressError;
 
       // 5. 处理数据，按课程汇总
@@ -200,7 +201,7 @@ export default function StudentProgressManagement() {
             assignmentNotSubmitted.push(studentInfo);
           }
 
-          if (progress?.status === 'completed') {
+          if (progress?.course_completed) {
             completed.push(studentInfo);
           }
         });

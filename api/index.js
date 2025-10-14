@@ -1031,9 +1031,9 @@ app.post('/api/courses/:courseId/video-completed', async (req, res) => {
       return res.status(400).json({ error: 'No current session found' })
     }
     
-    // 使用upsert更新或插入user_course_completions记录
+    // 使用upsert更新或插入course_completions记录
     const { error } = await supabase
-      .from('user_course_completions')
+      .from('course_completions')
       .upsert({
         session_id: currentSession.id,
         user_id: studentId,
@@ -1073,9 +1073,9 @@ app.post('/api/courses/:courseId/assignments-completed', async (req, res) => {
       return res.status(400).json({ error: 'No current session found' })
     }
     
-    // 更新user_course_completions记录
+    // 更新course_completions记录
     const { error } = await supabase
-      .from('user_course_completions')
+      .from('course_completions')
       .upsert({
         session_id: currentSession.id,
         user_id: studentId,
@@ -1115,16 +1115,15 @@ app.post('/api/courses/:courseId/mark-complete', async (req, res) => {
       return res.status(400).json({ error: 'No current session found' })
     }
     
-    // 更新user_course_completions记录为完成
+    // 更新course_completions记录为完成
     const { error } = await supabase
-      .from('user_course_completions')
+      .from('course_completions')
       .upsert({
         session_id: currentSession.id,
         user_id: studentId,
         course_id: courseId,
-        status: 'completed',
-        completion_percentage: 100,
-        completed_at: new Date().toISOString(),
+        course_completed: true,
+        course_completed_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }, {
         onConflict: 'session_id,user_id,course_id'
@@ -1145,7 +1144,7 @@ app.get('/api/students/:studentId/course-progress', async (req, res) => {
     const { sessionId } = req.query
     
     let query = supabase
-      .from('user_course_completions')
+      .from('course_completions')
       .select(`
         *,
         courses:course_id(id, title, duration),
