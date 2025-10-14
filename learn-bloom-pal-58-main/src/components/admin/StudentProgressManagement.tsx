@@ -128,14 +128,28 @@ export default function StudentProgressManagement() {
         .from('session_students')
         .select(`
           user_id,
-          profiles:user_id(id, email, full_name),
-          authorized_users!inner(name, email)
+          profiles:user_id(id, email, full_name)
         `)
         .eq('session_id', selectedSessionId);
 
       if (studentsError) throw studentsError;
 
-      // 3. 获取所有学习进度记录
+      // 3. 获取所有学生的授权信息（从authorized_users表）
+      const studentEmails = (sessionStudents || [])
+        .map(s => s.profiles?.email)
+        .filter(Boolean);
+
+      const { data: authorizedUsers } = await supabase
+        .from('authorized_users')
+        .select('email, name')
+        .in('email', studentEmails);
+
+      // 创建email到name的映射
+      const emailToNameMap = new Map(
+        (authorizedUsers || []).map(u => [u.email, u.name])
+      );
+
+      // 4. 获取所有学习进度记录
       const { data: progressRecords, error: progressError } = await supabase
         .from('user_course_completions')
         .select('*')
@@ -143,7 +157,7 @@ export default function StudentProgressManagement() {
 
       if (progressError) throw progressError;
 
-      // 4. 处理数据，按课程汇总
+      // 5. 处理数据，按课程汇总
       const summaries: CourseProgressSummary[] = (sessionCourses || []).map((sc: any) => {
         const course = sc.courses;
         const totalStudents = sessionStudents?.length || 0;
@@ -160,9 +174,10 @@ export default function StudentProgressManagement() {
 
         (sessionStudents || []).forEach((student: any) => {
           const progress = courseProgress.find(p => p.user_id === student.user_id);
+          const email = student.profiles?.email || '';
           const studentInfo = {
-            name: student.authorized_users?.name || student.profiles?.full_name || student.profiles?.email?.split('@')[0] || '未知',
-            email: student.authorized_users?.email || student.profiles?.email || ''
+            name: emailToNameMap.get(email) || student.profiles?.full_name || email.split('@')[0] || '未知',
+            email: email
           };
 
           if (progress?.video_completed) {
