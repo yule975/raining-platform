@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,10 +8,10 @@ import { User, Shield, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
-import PasswordStrengthIndicator, { calculatePasswordStrength } from "@/components/ui/PasswordStrengthIndicator";
 
 export default function Profile() {
   const { user, profile } = useAuth();
+  const [studentName, setStudentName] = useState('');
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -25,11 +25,53 @@ export default function Profile() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
 
+  // 获取学员真实姓名
+  useEffect(() => {
+    const fetchStudentName = async () => {
+      if (!user?.email) return;
+      
+      try {
+        // 从authorized_users表获取学员姓名
+        const { data, error } = await supabase
+          .from('authorized_users')
+          .select('name')
+          .eq('email', user.email)
+          .single();
+        
+        if (data && !error) {
+          setStudentName(data.name);
+        } else {
+          // 如果没找到，使用profile中的full_name或邮箱前缀
+          setStudentName(profile?.full_name || user.user_metadata?.full_name || user.email.split('@')[0]);
+        }
+      } catch (e) {
+        console.error('获取学员姓名失败:', e);
+        setStudentName(profile?.full_name || user?.email?.split('@')[0] || '');
+      }
+    };
+
+    fetchStudentName();
+  }, [user, profile]);
+
   const validatePassword = (password: string) => {
-    const strength = calculatePasswordStrength(password);
-    if (strength.score < 70) {
-      return '密码强度不足，请参考下方建议改进';
+    // 简化验证：至少8位，包含大小写字母和数字或特殊符号
+    if (password.length < 8) {
+      return '密码长度至少8位';
     }
+    
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    
+    if (!hasUpperCase || !hasLowerCase) {
+      return '密码必须包含大小写字母';
+    }
+    
+    if (!hasNumber && !hasSpecial) {
+      return '密码必须包含数字或特殊符号';
+    }
+    
     return '';
   };
 
@@ -110,7 +152,7 @@ export default function Profile() {
           </div>
           <div className="space-y-2">
             <Label>姓名（仅管理员可修改）</Label>
-            <Input value={profile?.full_name || ''} disabled />
+            <Input value={studentName} disabled />
           </div>
           
         </CardContent>
@@ -142,7 +184,7 @@ export default function Profile() {
             <div className="space-y-2">
               <Label htmlFor="new-password">新密码</Label>
               <div className="relative">
-                <Input id="new-password" type={showPasswords.new ? "text" : "password"} value={passwordData.newPassword} onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))} placeholder="至少8位，包含大小写字母和数字" required />
+                <Input id="new-password" type={showPasswords.new ? "text" : "password"} value={passwordData.newPassword} onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))} placeholder="至少8位，包含大小写字母+数字或特殊符号" required />
                 <Button type="button" variant="ghost" size="sm" className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent" onClick={() => togglePasswordVisibility('new')}>
                   {showPasswords.new ? (<EyeOff className="h-4 w-4" />) : (<Eye className="h-4 w-4" />)}
                 </Button>
