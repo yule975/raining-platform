@@ -578,6 +578,27 @@ const CourseDetail = () => {
     } catch {}
   }, [courseId, userId]);
 
+  // 页面加载或依赖变更时，从服务端回读一次进度用于恢复UI状态
+  useEffect(() => {
+    const restoreProgressFromServer = async () => {
+      if (!userId || !courseId) return;
+      try {
+        const session = currentSessionId || (await ApiService.getCurrentSession())?.id || null;
+        const list = await ApiService.getStudentCourseProgress(userId, session || undefined);
+        const record = Array.isArray(list) ? list.find((r: any) => r.course_id === courseId) : null;
+        console.log('🔁 页面加载回读进度:', { session, courseId, record });
+        if (record) {
+          if (record.video_completed) setIsVideoWatched(true);
+          if (record.assignments_completed) setIsSubmitted(true);
+          if (record.course_completed) setIsCompleted(true);
+        }
+      } catch (e) {
+        console.warn('回读进度失败(忽略):', e);
+      }
+    };
+    restoreProgressFromServer();
+  }, [userId, courseId, currentSessionId]);
+
   // Loading state
   if (isLoading) {
     return (
