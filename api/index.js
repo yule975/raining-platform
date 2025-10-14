@@ -386,24 +386,48 @@ app.delete('/api/assignments/:id', async (req, res) => {
 app.get('/api/assignments/:assignmentId/submissions', async (req, res) => {
   try {
     const { assignmentId } = req.params
-    const { data, error } = await supabase
+    
+    // 先获取提交记录
+    const { data: submissions, error: submissionsError } = await supabase
       .from('submissions')
-      .select(`
-        *,
-        profiles!submissions_student_id_fkey(id, email, full_name)
-      `)
+      .select('*')
       .eq('assignment_id', assignmentId)
       .order('submitted_at', { ascending: false })
-    if (error) throw error
     
-    const formatted = (data || []).map(s => ({
-      ...s,
-      student: {
-        id: s.profiles?.id || s.student_id,
-        name: s.profiles?.full_name || 'Unknown',
-        email: s.profiles?.email || ''
+    if (submissionsError) throw submissionsError
+    
+    if (!submissions || submissions.length === 0) {
+      return res.json([])
+    }
+    
+    // 获取所有学生的profile信息
+    const studentIds = [...new Set(submissions.map(s => s.student_id))]
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, email, full_name')
+      .in('id', studentIds)
+    
+    if (profilesError) {
+      console.error('获取profiles失败:', profilesError)
+    }
+    
+    // 创建profile映射
+    const profileMap = new Map((profiles || []).map(p => [p.id, p]))
+    
+    // 组合数据
+    const formatted = submissions.map(s => {
+      const profile = profileMap.get(s.student_id)
+      return {
+        ...s,
+        profiles: profile || null,
+        student: {
+          id: s.student_id,
+          name: profile?.full_name || 'Unknown',
+          email: profile?.email || ''
+        }
       }
-    }))
+    })
+    
     res.json(formatted)
   } catch (e) {
     console.error('submissions error:', e)

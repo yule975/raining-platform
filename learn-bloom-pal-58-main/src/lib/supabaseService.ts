@@ -623,6 +623,7 @@ export class AssignmentService {
 
       return assignments.map((a: any) => ({
         ...a,
+        course: a.courses, // 将 courses 字段重命名为 course
         submissions_count: submissionCounts[a.id] || 0
       }));
     } catch (error) {
