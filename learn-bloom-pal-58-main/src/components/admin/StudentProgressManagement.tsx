@@ -111,6 +111,29 @@ export default function StudentProgressManagement() {
     }
   };
 
+  const runDiagnostics = async () => {
+    try {
+      const base = window.location.origin;
+      const res = await fetch(`${base}/api/debug/progress`);
+      const data = await res.json();
+      console.log('🔍 诊断结果:', data);
+      
+      // 显示诊断信息
+      const info = [
+        `当前期次: ${data.data?.currentSession?.name || '未找到'}`,
+        `期次ID: ${data.data?.currentSession?.id || '无'}`,
+        `学习记录数: ${data.data?.completionsCount || 0}`,
+        `期次学生数: ${data.data?.sessionStudentsCount || 0}`,
+        `测试学生: ${data.data?.testStudent?.email || '未找到'}`
+      ].join('\n');
+      
+      alert(`📊 诊断结果:\n\n${info}\n\n详细数据请查看控制台`);
+    } catch (error) {
+      console.error('诊断失败:', error);
+      alert('诊断失败，请查看控制台');
+    }
+  };
+
   const loadCourseProgress = async () => {
     if (!selectedSessionId) return;
     
@@ -312,6 +335,14 @@ export default function StudentProgressManagement() {
       <div className="flex justify-between items-center">
         <h2 className="text-3xl font-bold">学习进度</h2>
         <div className="flex items-center gap-2">
+          <Button 
+            onClick={runDiagnostics}
+            variant="outline"
+            className="flex items-center gap-2 border-orange-500 text-orange-600 hover:bg-orange-50"
+          >
+            <Search className="w-4 h-4" />
+            诊断数据
+          </Button>
           <Button 
             onClick={() => loadCourseProgress()}
             disabled={isLoading || !selectedSessionId}

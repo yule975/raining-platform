@@ -1265,6 +1265,76 @@ app.get('/api/students/:studentId/course-progress', async (req, res) => {
   }
 })
 
+// ========== 诊断端点 ==========
+// 诊断学习进度数据
+app.get('/api/debug/progress', async (req, res) => {
+  try {
+    console.log('🔍 开始诊断学习进度数据...')
+    
+    // 1. 检查当前期次
+    const { data: currentSession, error: sessionError } = await supabase
+      .from('training_sessions')
+      .select('*')
+      .eq('is_current', true)
+      .single()
+    
+    if (sessionError) {
+      console.error('获取当前期次失败:', sessionError)
+      return res.json({ 
+        error: '获取当前期次失败', 
+        details: sessionError,
+        step: 1 
+      })
+    }
+    
+    // 2. 检查course_completions表
+    const { data: completions, error: completionsError } = await supabase
+      .from('course_completions')
+      .select('*, profiles:user_id(email), courses:course_id(title)')
+      .eq('session_id', currentSession.id)
+    
+    // 3. 检查session_students
+    const { data: sessionStudents, error: studentsError } = await supabase
+      .from('session_students')
+      .select('*, profiles:user_id(email)')
+      .eq('session_id', currentSession.id)
+    
+    // 4. 检查student@test用户
+    const { data: testStudent, error: testStudentError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('email', 'student@test.com')
+      .single()
+    
+    res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      data: {
+        currentSession: {
+          id: currentSession?.id,
+          name: currentSession?.name,
+          is_current: currentSession?.is_current,
+          status: currentSession?.status
+        },
+        completionsCount: completions?.length || 0,
+        completions: completions || [],
+        sessionStudentsCount: sessionStudents?.length || 0,
+        sessionStudents: sessionStudents || [],
+        testStudent: testStudent || null,
+        errors: {
+          sessionError,
+          completionsError,
+          studentsError,
+          testStudentError
+        }
+      }
+    })
+  } catch (e) {
+    console.error('诊断失败:', e)
+    res.status(500).json({ error: '诊断失败', details: e.message })
+  }
+})
+
 // 404处理
 app.use('*', (req, res) => {
   res.status(404).json({ error: 'Route not found' })
