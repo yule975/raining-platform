@@ -93,13 +93,13 @@ const CourseDetail = () => {
       }
       
       // 先标记视频完成
-      await ApiService.markVideoCompleted(user.id, courseId);
+      await ApiService.markVideoCompleted(courseId, user.id);
       
       // 再标记作业完成
-      await ApiService.markAssignmentsCompleted(user.id, courseId);
+      await ApiService.markAssignmentsCompleted(courseId, user.id);
       
       // 最后标记课程完成
-      await ApiService.markCourseComplete(user.id, courseId);
+      await ApiService.markCourseComplete(courseId, user.id);
       
       setIsCompleted(true);
       toast.success('🎉 恭喜完成课程！', {
