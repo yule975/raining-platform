@@ -24,7 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Search, Eye, CheckCircle, XCircle, Users, Video, FileCheck, Award } from 'lucide-react';
+import { Search, Eye, CheckCircle, XCircle, Users, Video, FileCheck, Award, Download } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
@@ -265,11 +265,52 @@ export default function StudentProgressManagement() {
     cp => cp.course.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // 导出Excel
+  const exportToExcel = () => {
+    if (courseProgressList.length === 0) {
+      toast.error('没有数据可以导出');
+      return;
+    }
+
+    const selectedSession = sessions.find(s => s.id === selectedSessionId);
+    const sessionName = selectedSession?.name || '未知期次';
+
+    // 创建CSV内容
+    let csvContent = '\uFEFF'; // UTF-8 BOM
+    csvContent += `期次：${sessionName}\n\n`;
+    csvContent += '课程名称,总学员数,已看视频,未看视频,已交作业,未交作业,已完成学习\n';
+
+    courseProgressList.forEach(cp => {
+      csvContent += `"${cp.course.title}",${cp.totalStudents},${cp.videoWatchedCount},${cp.videoNotWatchedCount},${cp.assignmentSubmittedCount},${cp.assignmentNotSubmittedCount},${cp.completedCount}\n`;
+    });
+
+    // 创建下载链接
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `学习进度统计_${sessionName}_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast.success('导出成功');
+  };
+
   return (
     <div className="space-y-6">
       {/* 标题 */}
       <div className="flex justify-between items-center">
         <h2 className="text-3xl font-bold">学习进度</h2>
+        <Button 
+          onClick={exportToExcel}
+          disabled={courseProgressList.length === 0}
+          className="flex items-center gap-2"
+        >
+          <Download className="w-4 h-4" />
+          导出Excel
+        </Button>
       </div>
 
       {/* 筛选栏 */}
