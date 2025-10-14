@@ -1253,20 +1253,16 @@ export class ApiService {
 
   static async getStudentSubmissions(studentId: string): Promise<AssignmentSubmission[]> {
     try {
-      const { data, error } = await supabase
-        .from('submissions')
-        .select(`
-          *,
-          assignments:assignment_id (title, course_id)
-        `)
-        .eq('student_id', studentId)
-        .order('submitted_at', { ascending: false })
-
-      if (error) {
-        throw error
+      // 使用后端代理获取学生提交记录
+      const base = getApiBaseUrl()
+      const res = await fetch(`${base}/api/students/${studentId}/submissions`)
+      
+      if (!res.ok) {
+        throw new Error(`Failed to fetch student submissions: ${res.status}`)
       }
-
-      return data.map(submission => this.mapSubmissionData(submission))
+      
+      const data = await res.json()
+      return (data || []).map((submission: any) => this.mapSubmissionData(submission))
     } catch (error) {
       console.error('Error fetching student submissions:', error)
       throw error

@@ -38,6 +38,22 @@ app.get('/api/courses', async (req, res) => {
   }
 })
 
+app.get('/api/courses/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { data, error } = await supabase
+      .from('courses')
+      .select('*')
+      .eq('id', id)
+      .single()
+    if (error) throw error
+    res.json(data)
+  } catch (e) {
+    console.error('get course error:', e)
+    res.status(500).json({ error: 'Failed to fetch course' })
+  }
+})
+
 app.post('/api/courses', async (req, res) => {
   try {
     const { title, description, cover_url, video_url, duration, instructor } = req.body
@@ -70,6 +86,96 @@ app.post('/api/courses', async (req, res) => {
   } catch (e) {
     console.error('create course error:', e)
     res.status(500).json({ error: 'Failed to create course' })
+  }
+})
+
+app.patch('/api/courses/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { title, description, cover_url, video_url, duration, instructor } = req.body
+    const { data, error } = await supabase
+      .from('courses')
+      .update({
+        title,
+        description,
+        cover_url,
+        video_url,
+        duration,
+        instructor,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw error
+    res.json(data)
+  } catch (e) {
+    console.error('update course error:', e)
+    res.status(500).json({ error: 'Failed to update course' })
+  }
+})
+
+app.delete('/api/courses/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    
+    // 删除关联的作业
+    await supabase.from('assignments').delete().eq('course_id', id)
+    
+    // 删除课程材料
+    await supabase.from('course_materials').delete().eq('course_id', id)
+    
+    // 删除课程
+    const { error } = await supabase.from('courses').delete().eq('id', id)
+    if (error) throw error
+    
+    res.json({ success: true })
+  } catch (e) {
+    console.error('delete course error:', e)
+    res.status(500).json({ error: 'Failed to delete course' })
+  }
+})
+
+app.get('/api/courses/:id/materials', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { data, error } = await supabase
+      .from('course_materials')
+      .select('*')
+      .eq('course_id', id)
+    if (error) throw error
+    res.json(data || [])
+  } catch (e) {
+    console.error('get materials error:', e)
+    res.status(500).json({ error: 'Failed to fetch materials' })
+  }
+})
+
+app.put('/api/courses/:id/materials', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { materials } = req.body
+    
+    // 删除旧材料
+    await supabase.from('course_materials').delete().eq('course_id', id)
+    
+    // 插入新材料
+    if (materials && materials.length > 0) {
+      const rows = materials.map(m => ({
+        course_id: id,
+        file_name: m.name || '',
+        file_type: m.type || 'other',
+        file_size: m.size || '',
+        file_url: m.downloadUrl || ''
+      }))
+      const { error } = await supabase.from('course_materials').insert(rows)
+      if (error) throw error
+    }
+    
+    res.json({ success: true })
+  } catch (e) {
+    console.error('set materials error:', e)
+    res.status(500).json({ error: 'Failed to set materials' })
   }
 })
 
@@ -184,6 +290,99 @@ app.get('/api/assignments', async (req, res) => {
   }
 })
 
+app.get('/api/assignments/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { data, error } = await supabase
+      .from('assignments')
+      .select('*')
+      .eq('id', id)
+      .single()
+    if (error) throw error
+    res.json(data)
+  } catch (e) {
+    console.error('get assignment error:', e)
+    res.status(500).json({ error: 'Failed to fetch assignment' })
+  }
+})
+
+app.post('/api/assignments', async (req, res) => {
+  try {
+    const assignmentData = req.body
+    const now = new Date().toISOString()
+    const { data, error } = await supabase
+      .from('assignments')
+      .insert({
+        course_id: assignmentData.course_id,
+        title: assignmentData.title,
+        description: assignmentData.description,
+        assignment_type: assignmentData.assignment_type || 'general',
+        due_date: assignmentData.due_date,
+        max_score: assignmentData.max_score || 100,
+        allow_file_upload: assignmentData.allow_file_upload || true,
+        allowed_file_types: assignmentData.allowed_file_types || 'pdf,jpg,png,zip',
+        max_file_size_mb: assignmentData.max_file_size_mb || 10,
+        instructions: assignmentData.instructions || '',
+        requirements: assignmentData.requirements || [],
+        is_active: assignmentData.is_active !== false,
+        created_at: now,
+        updated_at: now
+      })
+      .select()
+      .single()
+    if (error) throw error
+    res.status(201).json(data)
+  } catch (e) {
+    console.error('create assignment error:', e)
+    res.status(500).json({ error: 'Failed to create assignment' })
+  }
+})
+
+app.patch('/api/assignments/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const updates = req.body
+    const now = new Date().toISOString()
+    
+    const updateData = { updated_at: now }
+    if (updates.title !== undefined) updateData.title = updates.title
+    if (updates.description !== undefined) updateData.description = updates.description
+    if (updates.assignment_type !== undefined) updateData.assignment_type = updates.assignment_type
+    if (updates.due_date !== undefined) updateData.due_date = updates.due_date
+    if (updates.max_score !== undefined) updateData.max_score = updates.max_score
+    if (updates.allow_file_upload !== undefined) updateData.allow_file_upload = updates.allow_file_upload
+    if (updates.allowed_file_types !== undefined) updateData.allowed_file_types = updates.allowed_file_types
+    if (updates.max_file_size_mb !== undefined) updateData.max_file_size_mb = updates.max_file_size_mb
+    if (updates.instructions !== undefined) updateData.instructions = updates.instructions
+    if (updates.requirements !== undefined) updateData.requirements = updates.requirements
+    if (updates.is_active !== undefined) updateData.is_active = updates.is_active
+    
+    const { data, error } = await supabase
+      .from('assignments')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw error
+    res.json(data)
+  } catch (e) {
+    console.error('update assignment error:', e)
+    res.status(500).json({ error: 'Failed to update assignment' })
+  }
+})
+
+app.delete('/api/assignments/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { error } = await supabase.from('assignments').delete().eq('id', id)
+    if (error) throw error
+    res.json({ success: true })
+  } catch (e) {
+    console.error('delete assignment error:', e)
+    res.status(500).json({ error: 'Failed to delete assignment' })
+  }
+})
+
 app.get('/api/assignments/:assignmentId/submissions', async (req, res) => {
   try {
     const { assignmentId } = req.params
@@ -274,6 +473,27 @@ app.post('/api/assignments/:assignmentId/submissions', async (req, res) => {
   } catch (e) {
     console.error('submit error:', e)
     res.status(500).json({ error: 'Failed to submit assignment' })
+  }
+})
+
+// 获取学生的所有提交记录
+app.get('/api/students/:studentId/submissions', async (req, res) => {
+  try {
+    const { studentId } = req.params
+    const { data, error } = await supabase
+      .from('submissions')
+      .select(`
+        *,
+        assignments:assignment_id(title, course_id)
+      `)
+      .eq('student_id', studentId)
+      .order('submitted_at', { ascending: false })
+    
+    if (error) throw error
+    res.json(data || [])
+  } catch (e) {
+    console.error('student submissions error:', e)
+    res.status(500).json({ error: 'Failed to fetch student submissions' })
   }
 })
 
@@ -687,6 +907,55 @@ app.put('/api/students/:userId/sessions', async (req, res) => {
 })
 
 // ========== 授权用户管理 ==========
+app.get('/api/authorized-users', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('authorized_users')
+      .select('*')
+      .eq('role', 'student')
+      .order('added_at', { ascending: false })
+    if (error) throw error
+    res.json(data || [])
+  } catch (e) {
+    console.error('get authorized users error:', e)
+    res.status(500).json({ error: 'Failed to fetch authorized users' })
+  }
+})
+
+app.post('/api/authorized-users', async (req, res) => {
+  try {
+    const { name, email } = req.body
+    const { data, error } = await supabase
+      .from('authorized_users')
+      .insert({ name, email, status: 'active' })
+      .select()
+      .single()
+    if (error) throw error
+    res.status(201).json(data)
+  } catch (e) {
+    console.error('add authorized user error:', e)
+    res.status(500).json({ error: 'Failed to add authorized user' })
+  }
+})
+
+app.delete('/api/authorized-users/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10)
+    if (isNaN(id)) {
+      return res.status(400).json({ error: 'Invalid user ID' })
+    }
+    const { error } = await supabase
+      .from('authorized_users')
+      .delete()
+      .eq('id', id)
+    if (error) throw error
+    res.json({ success: true })
+  } catch (e) {
+    console.error('delete authorized user error:', e)
+    res.status(500).json({ error: 'Failed to delete authorized user' })
+  }
+})
+
 app.patch('/api/authorized-users/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10)
