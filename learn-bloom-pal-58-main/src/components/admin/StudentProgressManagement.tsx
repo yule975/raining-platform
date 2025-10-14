@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -81,10 +81,11 @@ export default function StudentProgressManagement() {
 
   // 当选择期次时加载课程进度
   useEffect(() => {
+    console.log('🔄 useEffect触发 - selectedSessionId变化:', selectedSessionId);
     if (selectedSessionId) {
       loadCourseProgress();
     }
-  }, [selectedSessionId]);
+  }, [selectedSessionId, loadCourseProgress]);
 
   const loadSessions = async () => {
     try {
@@ -109,7 +110,7 @@ export default function StudentProgressManagement() {
     }
   };
 
-  const loadCourseProgress = async () => {
+  const loadCourseProgress = useCallback(async () => {
     if (!selectedSessionId) return;
     
     console.log('📊 开始加载课程进度数据...', { selectedSessionId });
@@ -217,14 +218,16 @@ export default function StudentProgressManagement() {
         };
       });
 
+      console.log('✅ 汇总数据完成:', summaries);
       setCourseProgressList(summaries);
     } catch (error) {
-      console.error('加载课程进度失败:', error);
+      console.error('❌ 加载课程进度失败:', error);
       toast.error('加载课程进度失败');
     } finally {
+      console.log('📊 数据加载完成，loading设为false');
       setIsLoading(false);
     }
-  };
+  }, [selectedSessionId]);
 
   // 显示详情对话框
   const showDetail = (courseProgress: CourseProgressSummary, type: typeof detailType) => {
