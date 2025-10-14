@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -85,7 +85,8 @@ export default function StudentProgressManagement() {
     if (selectedSessionId) {
       loadCourseProgress();
     }
-  }, [selectedSessionId, loadCourseProgress]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSessionId]);
 
   const loadSessions = async () => {
     try {
@@ -110,7 +111,7 @@ export default function StudentProgressManagement() {
     }
   };
 
-  const loadCourseProgress = useCallback(async () => {
+  const loadCourseProgress = async () => {
     if (!selectedSessionId) return;
     
     console.log('📊 开始加载课程进度数据...', { selectedSessionId });
@@ -227,7 +228,7 @@ export default function StudentProgressManagement() {
       console.log('📊 数据加载完成，loading设为false');
       setIsLoading(false);
     }
-  }, [selectedSessionId]);
+  };
 
   // 显示详情对话框
   const showDetail = (courseProgress: CourseProgressSummary, type: typeof detailType) => {
