@@ -112,6 +112,7 @@ function App() {
               <Route path="sessions" element={<SessionManagement />} />
               <Route path="assignments" element={<AssignmentManagement />} />
               <Route path="students" element={<StudentManagement />} />
+              <Route path="progress" element={<Admin />} />
               <Route path="debug" element={<DataDebug />} />
               <Route path="supabase-test" element={<SupabaseTest />} />
 

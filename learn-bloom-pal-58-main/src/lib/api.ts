@@ -1470,41 +1470,13 @@ export class ApiService {
    */
   static async markCourseComplete(courseId: string, userId: string): Promise<boolean> {
     try {
-      const currentSession = await this.getCurrentSession()
-      if (!currentSession) {
-        console.error('No current session found')
-        return false
-      }
-
-      // 检查视频和作业是否都已完成
-      const { data: completion, error: fetchError } = await supabase
-        .from('course_completions')
-        .select('*')
-        .eq('session_id', currentSession.id)
-        .eq('user_id', userId)
-        .eq('course_id', courseId)
-        .single()
-
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        throw fetchError
-      }
-
-      // 如果视频和作业都已完成，则标记课程完成
-      if (completion && completion.video_completed && completion.assignments_completed) {
-        const { error } = await supabase.rpc('update_course_completion', {
-          p_session_id: currentSession.id,
-          p_user_id: userId,
-          p_course_id: courseId
-        })
-
-        if (error) {
-          throw error
-        }
-
-        return true
-      }
-
-      return false
+      const base = getApiBaseUrl();
+      const res = await fetch(`${base}/api/courses/${courseId}/mark-complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId: userId })
+      })
+      return res.ok
     } catch (error) {
       console.error('Error marking course complete:', error)
       return false
@@ -2379,24 +2351,13 @@ export class ApiService {
    */
   static async markAssignmentsCompleted(courseId: string, userId: string): Promise<boolean> {
     try {
-      const currentSession = await this.getCurrentSession()
-      if (!currentSession) {
-        console.error('No current session found')
-        return false
-      }
-
-      const { error } = await supabase.rpc('update_course_completion', {
-        p_session_id: currentSession.id,
-        p_user_id: userId,
-        p_course_id: courseId,
-        p_assignments_completed: true
+      const base = getApiBaseUrl();
+      const res = await fetch(`${base}/api/courses/${courseId}/assignments-completed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId: userId })
       })
-
-      if (error) {
-        throw error
-      }
-
-      return true
+      return res.ok
     } catch (error) {
       console.error('Error marking assignments completed:', error)
       return false

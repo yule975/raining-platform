@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import React from "react";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 // FeishuVideoPlayer 不再需要 - 使用封面+跳转方案
 
 const CourseDetail = () => {
@@ -381,7 +382,7 @@ const CourseDetail = () => {
     }
   };
 
-  // 手动确认“我已看完视频”
+  // 手动确认"我已看完视频"
   const handleMarkVideoWatched = async () => {
     if (!courseData?.id || !userId) {
       toast.error('请先登录');

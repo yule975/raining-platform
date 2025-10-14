@@ -8,7 +8,8 @@ import {
   Settings,
   Database,
   FileText,
-  Calendar
+  Calendar,
+  Activity
 } from "lucide-react";
 import {
   Sidebar,
@@ -43,6 +44,11 @@ const adminMenuItems = [
     title: "学生管理",
     url: "/admin/students",
     icon: Users
+  },
+  {
+    title: "学习进度",
+    url: "/admin/progress",
+    icon: Activity
   },
   {
     title: "系统设置",

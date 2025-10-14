@@ -7,6 +7,7 @@ import AssignmentManagement from "@/components/admin/AssignmentManagement";
 import AnalyticsCenter from "@/components/admin/AnalyticsCenter";
 import SystemSettings from "@/components/admin/SystemSettings";
 import SessionManagement from "./SessionManagement";
+import StudentProgressManagement from "@/components/admin/StudentProgressManagement";
 
 const Admin = () => {
   const location = useLocation();
@@ -19,6 +20,7 @@ const Admin = () => {
     if (currentPath.includes("/students")) return "students";
     if (currentPath.includes("/assignments")) return "assignments";
     if (currentPath.includes("/sessions")) return "sessions";
+    if (currentPath.includes("/progress")) return "progress";
     if (currentPath.includes("/analytics")) return "analytics";
     if (currentPath.includes("/settings")) return "settings";
     return "dashboard";
@@ -43,6 +45,8 @@ const Admin = () => {
         return <AssignmentManagement />;
       case "sessions":
         return <SessionManagement />;
+      case "progress":
+        return <StudentProgressManagement />;
       case "analytics":
         return <AnalyticsCenter />;
       case "settings":

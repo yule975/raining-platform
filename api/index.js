@@ -1009,6 +1009,164 @@ app.patch('/api/authorized-users/:id', async (req, res) => {
   }
 })
 
+// ========== 学习进度跟踪 ==========
+// 标记视频观看完成
+app.post('/api/courses/:courseId/video-completed', async (req, res) => {
+  try {
+    const { courseId } = req.params
+    const { studentId } = req.body
+    
+    if (!studentId) {
+      return res.status(400).json({ error: 'studentId is required' })
+    }
+    
+    // 获取当前期次
+    const { data: currentSession } = await supabase
+      .from('training_sessions')
+      .select('id')
+      .eq('is_current', true)
+      .single()
+    
+    if (!currentSession) {
+      return res.status(400).json({ error: 'No current session found' })
+    }
+    
+    // 使用upsert更新或插入user_course_completions记录
+    const { error } = await supabase
+      .from('user_course_completions')
+      .upsert({
+        session_id: currentSession.id,
+        user_id: studentId,
+        course_id: courseId,
+        video_completed: true,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'session_id,user_id,course_id'
+      })
+    
+    if (error) throw error
+    res.json({ success: true })
+  } catch (e) {
+    console.error('mark video completed error:', e)
+    res.status(500).json({ error: 'Failed to mark video completed' })
+  }
+})
+
+// 标记作业完成
+app.post('/api/courses/:courseId/assignments-completed', async (req, res) => {
+  try {
+    const { courseId } = req.params
+    const { studentId } = req.body
+    
+    if (!studentId) {
+      return res.status(400).json({ error: 'studentId is required' })
+    }
+    
+    // 获取当前期次
+    const { data: currentSession } = await supabase
+      .from('training_sessions')
+      .select('id')
+      .eq('is_current', true)
+      .single()
+    
+    if (!currentSession) {
+      return res.status(400).json({ error: 'No current session found' })
+    }
+    
+    // 更新user_course_completions记录
+    const { error } = await supabase
+      .from('user_course_completions')
+      .upsert({
+        session_id: currentSession.id,
+        user_id: studentId,
+        course_id: courseId,
+        assignments_completed: true,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'session_id,user_id,course_id'
+      })
+    
+    if (error) throw error
+    res.json({ success: true })
+  } catch (e) {
+    console.error('mark assignments completed error:', e)
+    res.status(500).json({ error: 'Failed to mark assignments completed' })
+  }
+})
+
+// 标记课程完成
+app.post('/api/courses/:courseId/mark-complete', async (req, res) => {
+  try {
+    const { courseId } = req.params
+    const { studentId } = req.body
+    
+    if (!studentId) {
+      return res.status(400).json({ error: 'studentId is required' })
+    }
+    
+    // 获取当前期次
+    const { data: currentSession } = await supabase
+      .from('training_sessions')
+      .select('id')
+      .eq('is_current', true)
+      .single()
+    
+    if (!currentSession) {
+      return res.status(400).json({ error: 'No current session found' })
+    }
+    
+    // 更新user_course_completions记录为完成
+    const { error } = await supabase
+      .from('user_course_completions')
+      .upsert({
+        session_id: currentSession.id,
+        user_id: studentId,
+        course_id: courseId,
+        status: 'completed',
+        completion_percentage: 100,
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'session_id,user_id,course_id'
+      })
+    
+    if (error) throw error
+    res.json({ success: true })
+  } catch (e) {
+    console.error('mark course complete error:', e)
+    res.status(500).json({ error: 'Failed to mark course complete' })
+  }
+})
+
+// 获取学员学习进度（管理员用）
+app.get('/api/students/:studentId/course-progress', async (req, res) => {
+  try {
+    const { studentId } = req.params
+    const { sessionId } = req.query
+    
+    let query = supabase
+      .from('user_course_completions')
+      .select(`
+        *,
+        courses:course_id(id, title, duration),
+        training_sessions:session_id(id, name)
+      `)
+      .eq('user_id', studentId)
+    
+    if (sessionId) {
+      query = query.eq('session_id', sessionId)
+    }
+    
+    const { data, error } = await query.order('updated_at', { ascending: false })
+    
+    if (error) throw error
+    res.json(data || [])
+  } catch (e) {
+    console.error('get student course progress error:', e)
+    res.status(500).json({ error: 'Failed to fetch student course progress' })
+  }
+})
+
 // 404处理
 app.use('*', (req, res) => {
   res.status(404).json({ error: 'Route not found' })
