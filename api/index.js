@@ -1032,17 +1032,46 @@ app.post('/api/courses/:courseId/video-completed', async (req, res) => {
     }
     
     // 使用upsert更新或插入course_completions记录
-    const { error } = await supabase
+    const now = new Date().toISOString()
+    
+    // 先查询是否存在记录
+    const { data: existing } = await supabase
       .from('course_completions')
-      .upsert({
-        session_id: currentSession.id,
-        user_id: studentId,
-        course_id: courseId,
-        video_completed: true,
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'session_id,user_id,course_id'
-      })
+      .select('*')
+      .eq('session_id', currentSession.id)
+      .eq('user_id', studentId)
+      .eq('course_id', courseId)
+      .single()
+    
+    let error
+    if (existing) {
+      // 更新现有记录
+      const result = await supabase
+        .from('course_completions')
+        .update({
+          video_completed: true,
+          video_completed_at: now,
+          updated_at: now
+        })
+        .eq('id', existing.id)
+      error = result.error
+    } else {
+      // 插入新记录
+      const result = await supabase
+        .from('course_completions')
+        .insert({
+          session_id: currentSession.id,
+          user_id: studentId,
+          course_id: courseId,
+          video_completed: true,
+          video_completed_at: now,
+          assignments_completed: false,
+          course_completed: false,
+          created_at: now,
+          updated_at: now
+        })
+      error = result.error
+    }
     
     if (error) throw error
     res.json({ success: true })
@@ -1074,17 +1103,46 @@ app.post('/api/courses/:courseId/assignments-completed', async (req, res) => {
     }
     
     // 更新course_completions记录
-    const { error } = await supabase
+    const now = new Date().toISOString()
+    
+    // 先查询是否存在记录
+    const { data: existing } = await supabase
       .from('course_completions')
-      .upsert({
-        session_id: currentSession.id,
-        user_id: studentId,
-        course_id: courseId,
-        assignments_completed: true,
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'session_id,user_id,course_id'
-      })
+      .select('*')
+      .eq('session_id', currentSession.id)
+      .eq('user_id', studentId)
+      .eq('course_id', courseId)
+      .single()
+    
+    let error
+    if (existing) {
+      // 更新现有记录
+      const result = await supabase
+        .from('course_completions')
+        .update({
+          assignments_completed: true,
+          assignments_completed_at: now,
+          updated_at: now
+        })
+        .eq('id', existing.id)
+      error = result.error
+    } else {
+      // 插入新记录
+      const result = await supabase
+        .from('course_completions')
+        .insert({
+          session_id: currentSession.id,
+          user_id: studentId,
+          course_id: courseId,
+          video_completed: false,
+          assignments_completed: true,
+          assignments_completed_at: now,
+          course_completed: false,
+          created_at: now,
+          updated_at: now
+        })
+      error = result.error
+    }
     
     if (error) throw error
     res.json({ success: true })
@@ -1116,18 +1174,46 @@ app.post('/api/courses/:courseId/mark-complete', async (req, res) => {
     }
     
     // 更新course_completions记录为完成
-    const { error } = await supabase
+    const now = new Date().toISOString()
+    
+    // 先查询是否存在记录
+    const { data: existing } = await supabase
       .from('course_completions')
-      .upsert({
-        session_id: currentSession.id,
-        user_id: studentId,
-        course_id: courseId,
-        course_completed: true,
-        course_completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'session_id,user_id,course_id'
-      })
+      .select('*')
+      .eq('session_id', currentSession.id)
+      .eq('user_id', studentId)
+      .eq('course_id', courseId)
+      .single()
+    
+    let error
+    if (existing) {
+      // 更新现有记录
+      const result = await supabase
+        .from('course_completions')
+        .update({
+          course_completed: true,
+          course_completed_at: now,
+          updated_at: now
+        })
+        .eq('id', existing.id)
+      error = result.error
+    } else {
+      // 插入新记录（理论上不应该走到这里，因为应该先标记视频和作业）
+      const result = await supabase
+        .from('course_completions')
+        .insert({
+          session_id: currentSession.id,
+          user_id: studentId,
+          course_id: courseId,
+          video_completed: false,
+          assignments_completed: false,
+          course_completed: true,
+          course_completed_at: now,
+          created_at: now,
+          updated_at: now
+        })
+      error = result.error
+    }
     
     if (error) throw error
     res.json({ success: true })
