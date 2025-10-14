@@ -44,13 +44,30 @@ const Courses = () => {
           // 校验用户是否属于该期次（若未登录，则视为非成员）
           let member = true;
           try {
-            const demoUser = localStorage.getItem('demo_user');
-            const parsed = demoUser ? JSON.parse(demoUser) : null;
-            const userId = parsed?.id || parsed?.user?.id || null;
+            // 优先从user_profile获取（学员登录后设置的）
+            let userId = null;
+            const userProfile = localStorage.getItem('user_profile');
+            if (userProfile) {
+              const parsed = JSON.parse(userProfile);
+              userId = parsed?.id;
+            } else {
+              // 兼容demo_user
+              const demoUser = localStorage.getItem('demo_user');
+              if (demoUser) {
+                const parsed = JSON.parse(demoUser);
+                userId = parsed?.id || parsed?.user?.id;
+              }
+            }
+            
             if (userId) {
               member = await ApiService.isSessionMember(session.id, userId);
+              console.log('期次成员检查:', { userId, sessionId: session.id, isMember: member });
+            } else {
+              console.warn('未找到用户ID，默认为期次成员');
             }
-          } catch {}
+          } catch (err) {
+            console.error('期次成员检查失败:', err);
+          }
           setIsMember(member);
           if (member) {
             const courseData = await ApiService.getSessionCourses(session.id);
