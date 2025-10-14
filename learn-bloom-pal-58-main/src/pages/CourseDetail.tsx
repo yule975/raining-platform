@@ -49,6 +49,7 @@ const CourseDetail = () => {
   
   // Video watching state
   const [isVideoWatched, setIsVideoWatched] = useState(false);
+  const [lastProgressCheckAt, setLastProgressCheckAt] = useState<string | null>(null);
 
   // Get course data from store
   const [courseData, setCourseData] = useState(null);
@@ -92,8 +93,13 @@ const CourseDetail = () => {
         return;
       }
       
-      // 先标记视频完成
+      // 先标记视频完成（幂等）
       await ApiService.markVideoCompleted(courseId, user.id);
+      // 回读一次进度，确认写库
+      try {
+        const confirm = await ApiService.getStudentCourseProgress(user.id, currentSessionId || undefined);
+        console.log('🧪 完成流程前回读进度:', confirm);
+      } catch {}
       
       // 再标记作业完成
       await ApiService.markAssignmentsCompleted(courseId, user.id);
@@ -401,6 +407,12 @@ const CourseDetail = () => {
         setIsVideoWatched(true);
         toast.success('已记录视频观看');
         console.log('✅ 视频观看记录成功');
+        try {
+          // 立即从后端拉取一次该学员在当前期次的进度，确保写库成功
+          const progress = await ApiService.getStudentCourseProgress(userId);
+          console.log('🧪 写库后回读进度:', progress);
+          setLastProgressCheckAt(new Date().toISOString());
+        } catch {}
       } else {
         toast.error('记录失败，请稍后重试');
         console.error('❌ 记录失败：API返回false');
@@ -414,6 +426,7 @@ const CourseDetail = () => {
   // Get authenticated user ID
   const { user } = useAuth();
   const userId = user?.id || "";
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [existingSubmissions, setExistingSubmissions] = useState([]);
   const [currentSubmission, setCurrentSubmission] = useState<any>(null);
 
@@ -527,6 +540,12 @@ const CourseDetail = () => {
         }
         
         setCourseData(course);
+        // 拉取当前期次ID
+        try {
+          const session = await ApiService.getCurrentSession();
+          setCurrentSessionId(session?.id || null);
+        } catch {}
+
         // 课程首屏先呈现；作业与提交后台加载
         loadAssignmentAndSubmission(course.id);
       } catch (err) {

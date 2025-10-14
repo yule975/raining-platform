@@ -1484,6 +1484,24 @@ export class ApiService {
   }
 
   /**
+   * 获取学员在某期次的课程进度列表（后端代理，绕过RLS）
+   */
+  static async getStudentCourseProgress(userId: string, sessionId?: string): Promise<any[]> {
+    try {
+      const base = getApiBaseUrl();
+      const url = sessionId
+        ? `${base}/api/students/${userId}/course-progress?sessionId=${encodeURIComponent(sessionId)}`
+        : `${base}/api/students/${userId}/course-progress`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`getStudentCourseProgress failed: ${res.status}`);
+      return await res.json();
+    } catch (error) {
+      console.error('Error getStudentCourseProgress:', error);
+      return [];
+    }
+  }
+
+  /**
    * 获取用户学习完成统计（期次制）
    */
   static async getUserCompletionStats(userId: string): Promise<{
