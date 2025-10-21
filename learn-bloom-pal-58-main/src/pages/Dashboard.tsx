@@ -58,31 +58,66 @@ const Dashboard = () => {
             courses = await ApiService.getCourses();
           }
           if (courses && courses.length > 0) {
-            // 不假装知道用户应该学什么特定课程
-            // 目前没有学习记录，所以不推荐具体课程
-            setLastCourseId(null);
-            setLastCourseTitle('');
+            // 获取当前用户ID
+            let userId = null;
+            const userProfile = localStorage.getItem('user_profile');
+            if (userProfile) {
+              const parsed = JSON.parse(userProfile);
+              userId = parsed?.id;
+            }
             
-            // 设置真实的课程数据
+            // 获取真实的课程进度
+            let progressData: any[] = [];
+            if (userId) {
+              try {
+                progressData = await ApiService.getStudentCourseProgress(userId, selectedSessionId);
+                console.log('Dashboard: 获取到的课程进度', progressData);
+              } catch (e) {
+                console.warn('Dashboard: 获取课程进度失败', e);
+              }
+            }
+            
+            // 创建进度映射
+            const progressMap = new Map(progressData.map(p => [p.course_id, p]));
+            
+            // 设置真实的课程数据，包含完成状态
             setUserCourseCompletions(
-              courses.map((c: any) => ({
-                course_id: c.id,
-                title: c.title,
-                description: c.description || '',
-                completion_percentage: 0,
-                status: 'available' // 可学习状态
-              }))
+              courses.map((c: any) => {
+                const progress = progressMap.get(c.id);
+                return {
+                  course_id: c.id,
+                  title: c.title,
+                  description: c.description || '',
+                  completion_percentage: progress?.is_completed ? 100 : 0,
+                  status: progress?.is_completed ? 'completed' : 'available'
+                };
+              })
             );
 
-            // 计算真实的完成统计 - 基于可访问课程数量
+            // 计算真实的完成统计
             const totalCourses = courses.length;
-            // 这里暂时设为0，因为没有具体的完成记录API
-            // 后续可以通过用户学习记录API获取真实完成数据
+            const completedCourses = progressData.filter(p => p.is_completed).length;
+            const completionRate = totalCourses > 0 ? Math.round((completedCourses / totalCourses) * 100) : 0;
+            
             setCompletionStats({ 
-              completedCourses: 0, 
-              completionRate: 0 
+              completedCourses, 
+              completionRate 
             });
-            console.log('Dashboard: 课程统计', { totalCourses, completedCourses: 0 });
+            console.log('Dashboard: 课程统计', { totalCourses, completedCourses, completionRate });
+            
+            // 找到最后学习的课程（未完成的）
+            const lastInProgressCourse = courses.find((c: any) => {
+              const progress = progressMap.get(c.id);
+              return progress && !progress.is_completed;
+            });
+            
+            if (lastInProgressCourse) {
+              setLastCourseId(lastInProgressCourse.id);
+              setLastCourseTitle(lastInProgressCourse.title);
+            } else {
+              setLastCourseId(null);
+              setLastCourseTitle('');
+            }
           } else {
             // 没有课程时的状态
             setCompletionStats({ completedCourses: 0, completionRate: 0 });
@@ -134,39 +169,63 @@ const Dashboard = () => {
           }
           
           if (courses && courses.length > 0) {
-            // 诚实处理：不假装知道用户应该学什么
-            // 没有学习记录时，不推荐特定课程
-            setLastCourseId(null);
-            setLastCourseTitle('');
+            // 获取真实的课程进度
+            let progressData: any[] = [];
+            if (user?.id) {
+              try {
+                progressData = await ApiService.getStudentCourseProgress(user.id, currentSession?.id);
+                console.log('Dashboard: 获取到的课程进度', progressData);
+              } catch (e) {
+                console.warn('Dashboard: 获取课程进度失败', e);
+              }
+            }
             
-            // 设置真实的课程完成数据
+            // 创建进度映射
+            const progressMap = new Map(progressData.map(p => [p.course_id, p]));
+            
+            // 设置真实的课程完成数据，包含完成状态
             setUserCourseCompletions(
-              courses.map((c: any) => ({
-                course_id: c.id,
-                title: c.title,
-                description: c.description || '',
-                completion_percentage: 0,
-                status: 'available'
-              }))
+              courses.map((c: any) => {
+                const progress = progressMap.get(c.id);
+                return {
+                  course_id: c.id,
+                  title: c.title,
+                  description: c.description || '',
+                  completion_percentage: progress?.is_completed ? 100 : 0,
+                  status: progress?.is_completed ? 'completed' : 'available'
+                };
+              })
             );
 
             // 计算真实的完成统计
             const totalCourses = courses.length;
-            // 目前设为0，因为暂未实现具体的课程完成追踪
-            // 这里可以根据实际的学习记录API来计算真实完成数
-            const completedCount = 0;
-            const completionRate = totalCourses > 0 ? Math.round((completedCount / totalCourses) * 100) : 0;
+            const completedCourses = progressData.filter(p => p.is_completed).length;
+            const completionRate = totalCourses > 0 ? Math.round((completedCourses / totalCourses) * 100) : 0;
             
             setCompletionStats({
-              completedCourses: completedCount,
-              completionRate: completionRate
+              completedCourses,
+              completionRate
             });
             
             console.log('Dashboard: 真实课程统计', { 
               totalCourses, 
-              completedCourses: completedCount, 
+              completedCourses, 
               completionRate 
             });
+            
+            // 找到最后学习的课程（未完成的）
+            const lastInProgressCourse = courses.find((c: any) => {
+              const progress = progressMap.get(c.id);
+              return progress && !progress.is_completed;
+            });
+            
+            if (lastInProgressCourse) {
+              setLastCourseId(lastInProgressCourse.id);
+              setLastCourseTitle(lastInProgressCourse.title);
+            } else {
+              setLastCourseId(null);
+              setLastCourseTitle('');
+            }
           } else {
             // 没有课程时的状态
             setCompletionStats({ completedCourses: 0, completionRate: 0 });
