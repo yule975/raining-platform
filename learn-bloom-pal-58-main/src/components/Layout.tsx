@@ -133,8 +133,8 @@ const Layout = () => {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-56" align="end" forceMount>
                     <div className="flex flex-col space-y-1 p-2">
-                      <p className="text-sm font-medium">{profile?.full_name || user?.email || '用户'}</p>
-                      <p className="text-xs text-muted-foreground">{resolvedRole === 'admin' ? '管理员' : '学员'}</p>
+                      <p className="text-sm font-medium">{resolvedRole === 'admin' ? '管理员' : '学员'}</p>
+                      <p className="text-xs text-muted-foreground">{user?.email?.split('@')[0] || '用户'}</p>
                     </div>
                     <DropdownMenuSeparator />
                     {resolvedRole === 'admin' ? (
