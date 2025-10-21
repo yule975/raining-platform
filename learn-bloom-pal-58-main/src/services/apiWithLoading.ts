@@ -106,6 +106,49 @@ export class ApiWithLoading {
   }
 
   /**
+   * 创建课程（带加载状态）
+   */
+  static async createCourse(
+    course: any,
+    withLoading: <T>(operation: () => Promise<T>) => Promise<T>
+  ) {
+    return withLoading(() => ApiService.createCourse(course).catch(error => {
+      const appError = handleApiError(error);
+      logError(appError, 'createCourse');
+      throw appError;
+    }))
+  }
+
+  /**
+   * 更新课程（带加载状态）
+   */
+  static async updateCourse(
+    id: string,
+    updates: any,
+    withLoading: <T>(operation: () => Promise<T>) => Promise<T>
+  ) {
+    return withLoading(() => ApiService.updateCourse(id, updates).catch(error => {
+      const appError = handleApiError(error);
+      logError(appError, 'updateCourse');
+      throw appError;
+    }))
+  }
+
+  /**
+   * 删除课程（带加载状态）
+   */
+  static async deleteCourse(
+    id: string,
+    withLoading: <T>(operation: () => Promise<T>) => Promise<T>
+  ) {
+    return withLoading(() => ApiService.deleteCourse(id).catch(error => {
+      const appError = handleApiError(error);
+      logError(appError, 'deleteCourse');
+      throw appError;
+    }))
+  }
+
+  /**
    * 获取当前期次（带加载状态）
    */
   static async getCurrentSession(

@@ -129,7 +129,7 @@ const CourseManagement = () => {
     });
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.title || !formData.videoUrl) {
       toast({
         title: "提交失败",
@@ -148,40 +148,58 @@ const CourseManagement = () => {
       return;
     }
 
-    const courseData = {
-      title: formData.title,
-      description: formData.description,
-      cover: formData.cover || "/placeholder.svg",
-      videoUrl: formData.videoUrl,
-      duration: formData.duration,
-      materials: formData.materials,
-      assignment: {
-        ...formData.assignment,
-        id: formData.assignment.id || Date.now().toString()
-      },
-      createdAt: editingCourse ? editingCourse.createdAt : new Date().toISOString().split('T')[0],
-      updatedAt: new Date().toISOString().split('T')[0],
-      studentCount: editingCourse ? editingCourse.studentCount : 0,
-      completionRate: editingCourse ? editingCourse.completionRate : 0
-    };
-
-    if (editingCourse) {
-      const updatedCourse = updateCourse(courseData);
-      console.log('课程更新成功:', updatedCourse);
+    try {
+      if (editingCourse) {
+        // 更新课程
+        console.log('准备更新课程:', editingCourse.id, formData);
+        const updates = {
+          title: formData.title,
+          description: formData.description,
+          cover: formData.cover || "/placeholder.svg",
+          videoUrl: formData.videoUrl,
+          duration: formData.duration,
+          materials: formData.materials,
+        };
+        
+        await ApiWithLoading.updateCourse(editingCourse.id, updates, updateLoading.withLoading);
+        console.log('课程更新成功');
+        
+        toast({
+          title: "更新成功",
+          description: "课程信息已更新"
+        });
+      } else {
+        // 创建新课程
+        console.log('准备创建新课程:', formData);
+        const courseData = {
+          title: formData.title,
+          description: formData.description,
+          cover: formData.cover || "/placeholder.svg",
+          videoUrl: formData.videoUrl,
+          duration: formData.duration,
+          materials: formData.materials,
+        };
+        
+        await ApiWithLoading.createCourse(courseData, createLoading.withLoading);
+        console.log('新课程创建成功');
+        
+        toast({
+          title: "创建成功",
+          description: "新课程已创建"
+        });
+      }
+      
+      // 刷新课程列表
+      await fetchCourses();
+      handleReset();
+    } catch (error: any) {
+      console.error('保存课程失败:', error);
       toast({
-        title: "更新成功",
-        description: "课程信息已更新"
-      });
-    } else {
-      const newCourse = addCourse(courseData);
-      console.log('新课程创建成功:', newCourse);
-      toast({
-        title: "创建成功",
-        description: "新课程已创建"
+        title: "操作失败",
+        description: error.message || "保存课程时发生错误",
+        variant: "destructive"
       });
     }
-
-    handleReset();
   };
 
   const handleReset = () => {
@@ -245,12 +263,31 @@ const CourseManagement = () => {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (courseId: string) => {
-    deleteCourse(courseId);
-    toast({
-      title: "删除成功",
-      description: "课程已删除"
-    });
+  const handleDelete = async (courseId: string) => {
+    if (!confirm('确定要删除这门课程吗？此操作不可恢复。')) {
+      return;
+    }
+    
+    try {
+      console.log('准备删除课程:', courseId);
+      await ApiWithLoading.deleteCourse(courseId, deleteLoading.withLoading);
+      console.log('课程删除成功');
+      
+      toast({
+        title: "删除成功",
+        description: "课程已删除"
+      });
+      
+      // 刷新课程列表
+      await fetchCourses();
+    } catch (error: any) {
+      console.error('删除课程失败:', error);
+      toast({
+        title: "删除失败",
+        description: error.message || "删除课程时发生错误",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleCreateNew = () => {
