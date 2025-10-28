@@ -631,7 +631,8 @@ app.post('/api/students/export-credentials', async (req, res) => {
         const name = u.name || email.split('@')[0]
         console.log(`处理用户: ${name} (${email})`)
         
-        let authUser = listed?.users?.find(x => x.email === email)
+        // 使用不区分大小写的邮箱匹配
+        let authUser = listed?.users?.find(x => x.email?.toLowerCase() === email.toLowerCase())
         const pwd = generateStrongPassword()
         
         if (!authUser) {
@@ -644,11 +645,26 @@ app.post('/api/students/export-credentials', async (req, res) => {
           })
           if (cErr) {
             console.error(`创建用户失败 ${email}:`, cErr)
-            throw new Error(`创建用户失败 ${email}: ${cErr.message}`)
+            // 如果提示用户已存在，重新获取用户列表并更新密码
+            if (cErr.message?.includes('already been registered') || cErr.message?.includes('User already registered')) {
+              console.log(`用户 ${email} 已存在，重新获取用户信息并更新密码`)
+              const { data: refreshedList } = await supabase.auth.admin.listUsers()
+              authUser = refreshedList?.users?.find(x => x.email?.toLowerCase() === email.toLowerCase())
+              if (!authUser) {
+                throw new Error(`用户 ${email} 已存在但无法找到，请联系管理员`)
+              }
+              // 继续到下面的更新密码逻辑
+            } else {
+              throw new Error(`创建用户失败 ${email}: ${cErr.message}`)
+            }
+          } else {
+            authUser = created.user
+            console.log(`用户创建成功: ${email}`)
           }
-          authUser = created.user
-          console.log(`用户创建成功: ${email}`)
-        } else {
+        }
+        
+        // 如果用户已存在（或创建失败后找到了），更新密码
+        if (authUser && authUser.id) {
           console.log(`更新现有用户密码: ${email}`)
           const { error: uErr } = await supabase.auth.admin.updateUserById(authUser.id, {
             password: pwd,
