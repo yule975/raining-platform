@@ -24,8 +24,8 @@
       "destination": "/api/index.js"
     },
     {
-      "source": "/:path*",
-      "destination": "/learn-bloom-pal-58-main/dist/index.html"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
