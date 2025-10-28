@@ -871,10 +871,13 @@ const StudentManagement = () => {
                   return;
                 }
                 const sessionIds = sessionFilter !== 'all' ? [sessionFilter] : undefined;
+                console.log('导出凭证 - 选中的ID:', Array.from(selectedIds), '期次:', sessionIds);
                 await ApiService.exportStudentCredentials({ userIds: Array.from(selectedIds) as any, sessionIds });
                 toast({ title: '已导出', description: '初始密码CSV已下载，请妥善保管' });
               } catch (e: any) {
-                toast({ title: '导出失败', description: e?.message || '请稍后重试', variant: 'destructive' });
+                console.error('导出凭证失败:', e);
+                const errorMsg = e?.message || e?.details || e?.error || '请稍后重试';
+                toast({ title: '导出失败', description: errorMsg, variant: 'destructive' });
               }
             }}
           >

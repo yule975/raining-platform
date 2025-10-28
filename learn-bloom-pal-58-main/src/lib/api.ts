@@ -718,12 +718,24 @@ export class ApiService {
 
   static async exportStudentCredentials(params: { userIds: string[]; sessionIds?: string[] }) {
     const base = getApiBaseUrl()
+    console.log('导出凭证 API请求:', { url: `${base}/api/students/export-credentials`, params });
     const res = await fetch(`${base}/api/students/export-credentials`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params)
     })
-    if (!res.ok) throw new Error('导出失败')
+    if (!res.ok) {
+      // 尝试解析后端返回的错误信息
+      let errorMsg = '导出失败';
+      try {
+        const errorData = await res.json();
+        console.error('导出凭证失败 - 后端返回:', errorData);
+        errorMsg = errorData.details || errorData.error || errorData.message || errorMsg;
+      } catch (e) {
+        console.error('无法解析错误响应:', e);
+      }
+      throw new Error(errorMsg);
+    }
     const blob = await res.blob()
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
